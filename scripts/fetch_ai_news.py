@@ -45,6 +45,36 @@ GOOGLE_NEWS_URLS = [
 
 HN_API = "https://hn.algolia.com/api/v1/search_by_date?query=AI+LLM+GPT+OpenAI+agent&tags=story&hitsPerPage=30&numericFilters=points>30"
 
+# ==============================
+# 重点跟踪公司列表（论文优先级筛选）
+# ==============================
+FOCUS_COMPANIES_INTL = [
+    "openai", "google deepmind", "google", "anthropic", "meta ai", "meta fair",
+    "microsoft research", "microsoft", "apple ai", "apple", "amazon ai", "aws",
+    "nvidia", "xai", "cohere", "stability ai", "mistral ai", "inflection ai",
+]
+
+FOCUS_COMPANIES_CN = [
+    "百度", "baidu", "阿里巴巴", "alibaba", "阿里云", "腾讯", "tencent",
+    "字节跳动", "bytedance", "豆包", "华为", "huawei", "美团", "meituan",
+    "小米", "xiaomi", "商汤", "sensetime", "月之暗面", "moonshot ai", "kimi",
+    "智谱ai", "zhipu ai", "glm", "百川智能", "baichuan", "零一万物", "01.ai",
+    "minimax", "深度求索", "deepseek", "蚂蚁集团", "ant group", "京东", "jd.com",
+    "网易", "netease", "快手", "kuaishou", "科大讯飞", "iflytek", "昆仑万维",
+]
+
+ALL_FOCUS_COMPANIES = FOCUS_COMPANIES_INTL + FOCUS_COMPANIES_CN
+
+
+def is_focus_company_paper(paper):
+    """Check if a paper is from any focus company."""
+    text = ' '.join([
+        paper.get('title', ''),
+        ' '.join([a.get('affiliation', '') for a in paper.get('authors', [])]),
+        ' '.join(paper.get('affiliations', [])),
+    ]).lower()
+    return any(company.lower() in text for company in ALL_FOCUS_COMPANIES)
+
 
 def fetch_url(url, timeout=TIMEOUT):
     try:
@@ -314,7 +344,7 @@ def fetch_openalex_papers(max_results=5):
                 venue = loc['source'].get('display_name', '')
                 venue_type = loc['source'].get('type', '')
             authors_with_aff = []
-            for a in work.get('authorships', [])[:5]:
+            for a in work.get('authorships', []):
                 name = a.get('author', {}).get('display_name', '')
                 insts = [i.get('display_name', '') for i in a.get('institutions', [])]
                 aff = insts[0] if insts else ''
@@ -380,7 +410,7 @@ def fetch_dblp_papers(max_results=5):
             authors_info = info.get('authors', {}).get('author', [])
             if isinstance(authors_info, dict):
                 authors_info = [authors_info]
-            authors = [{'name': a.get('text', str(a)) if isinstance(a, dict) else str(a), 'affiliation': ''} for a in authors_info[:5]]
+            authors = [{'name': a.get('text', str(a)) if isinstance(a, dict) else str(a), 'affiliation': ''} for a in authors_info]
             link = f"https://doi.org/{doi}" if doi else info.get('ee', '')
             if title:
                 items.append({
@@ -418,20 +448,35 @@ def main():
     print(f"    ✓ {len(hn_raw)} items", file=sys.stderr)
 
     print("  📄 arXiv (with PDF extraction)...", file=sys.stderr)
-    arxiv_raw = fetch_arxiv_papers_with_fulltext(max_results=5)
+    arxiv_raw = fetch_arxiv_papers_with_fulltext(max_results=8)
     print(f"    ✓ {len(arxiv_raw)} papers with full text", file=sys.stderr)
 
     print("  📍 OpenAlex...", file=sys.stderr)
-    openalex_raw = fetch_openalex_papers()
+    openalex_raw = fetch_openalex_papers(max_results=8)
     print(f"    ✓ {len(openalex_raw)} papers", file=sys.stderr)
 
     print("  📍 DBLP...", file=sys.stderr)
-    dblp_raw = fetch_dblp_papers()
+    dblp_raw = fetch_dblp_papers(max_results=8)
     print(f"    ✓ {len(dblp_raw)} papers", file=sys.stderr)
 
     # Merge all news into one pool
     all_news = cn_raw + en_raw + hn_raw
-    papers = arxiv_raw + openalex_raw + dblp_raw
+    
+    # Merge papers and prioritize by focus company
+    all_papers = arxiv_raw + openalex_raw + dblp_raw
+    
+    # Mark focus company papers
+    for p in all_papers:
+        p['is_focus_company'] = is_focus_company_paper(p)
+    
+    # Sort: focus company papers first, then by date/source
+    all_papers.sort(key=lambda x: (not x.get('is_focus_company', False), x.get('date', '') != datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d')))
+    
+    # Count focus company papers
+    focus_count = sum(1 for p in all_papers if p.get('is_focus_company'))
+    print(f"  🏢 Focus company papers: {focus_count}/{len(all_papers)}", file=sys.stderr)
+    
+    papers = all_papers
 
     output = {
         "date": datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d"),
