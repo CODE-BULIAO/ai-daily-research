@@ -1,9 +1,12 @@
 ---
 name: ai-daily-research
 description: >
-  自动采集、分析并生成每日 AI 新闻日报 + 论文深度研究。覆盖国内外新闻、arXiv/OpenAlex/DBLP 论文。
-  支持 PDF 全文提取、作者单位分析、创新点深度解析。大厂论文优先。工作日自动推送到飞书。
-version: 1.3.0
+  牛马加速器 — 科研牛马的AI科研助手。自动采集、分析并生成每日 AI 新闻日报 + 论文深度研究。
+  覆盖国内外新闻 + 6大学术来源(arXiv/OpenAlex/DBLP/CrossRef/OpenReview/Google Scholar) + 11个顶级技术博客。
+  支持 PDF 全文提取、作者单位分析、创新点深度解析、外部文章收录(渐进式披露)。
+  集成 Karpathy LLM Wiki：论文自动写入个人知识库，概念自动累积，实体自动追踪时间线。
+  大厂论文优先。工作日推送到飞书。
+version: 1.5.0
 author: CODE-BULIAO
 license: MIT
 tags: [AI, News, Papers, Daily, Research, ArXiv, OpenAlex, LLM]
@@ -17,10 +20,12 @@ github: https://github.com/CODE-BULIAO/ai-daily-research
 ## 架构
 
 ```
-脚本采集 (Python) → JSON → LLM总结 → 飞书推送
+脚本采集 (Python) → JSON → LLM总结 → 飞书推送 + Wiki 写入
+                                       ↓
+                                   ~/wiki/ (个人知识库)
 ```
 
-**关键设计**：脚本负责数据采集+预处理，LLM负责智能总结+格式化。分离关注点。
+**关键设计**：脚本负责数据采集+预处理，LLM负责智能总结+格式化+Wiki写入。分离关注点。
 
 ## 数据源
 
@@ -184,14 +189,28 @@ python3 /opt/data/scripts/fetch_ai_news.py 2>/tmp/fetch_stderr.txt > /tmp/ai_new
 
 ## 外部来源工作流（渐进式披露）
 
+### 触发关键词
+
+| 触发方式 | 示例 | 行为 |
+|----------|------|------|
+| 发链接 | `https://mp.weixin.qq.com/s/xxx` | 自动识别并收录论文标题 |
+| 链接 + 记住 | `记住 https://mp.weixin.qq.com/s/xxx` | 同上 |
+| 链接 + 收录 | `收录 https://mp.weixin.qq.com/s/xxx` | 同上 |
+| 链接 + 加入日报 | `加入日报 https://mp.weixin.qq.com/s/xxx` | 同上 |
+| 查看待分析 | `查看待分析` | 显示 pending_papers.md 内容 |
+| 清除待分析 | `清除待分析` | 清空 pending_papers.md |
+| 查询 Wiki | `查wiki` / `wiki里有什么` | 读取 ~/wiki/index.md 返回概览 |
+| 搜索 Wiki | `查wiki reasoning` | 搜索 ~/wiki/concepts/ 下相关页面 |
+
 ### 文件结构
 - `/opt/data/scripts/sources/pending_papers.md` — 待分析论文列表（标题+关键词）
 - `/opt/data/cron/output/analyzed_sources.json` — 已分析结果（完整论文分析）
 
 ### 流程
 
-**1. 用户提供文章链接时**
-- 提取论文标题和关键词
+**1. 用户提供文章链接时**（自动触发）
+- 识别公众号/网页链接（mp.weixin.qq.com、openreview.net、arxiv.org 等）
+- 自动提取论文标题和关键词
 - 追加到 `pending_papers.md`
 
 **2. 做日报时**
@@ -201,6 +220,7 @@ python3 /opt/data/scripts/fetch_ai_news.py 2>/tmp/fetch_stderr.txt > /tmp/ai_new
   a. 从 `pending_papers.md` 删除该条目
   b. 在 `analyzed_sources.json` 追加**完整分析记录**
   c. 如果 `pending_papers.md` 为空则清空文件
+  d. **Wiki 写入**：按照 Wiki Writer 步骤（Step 1-6），将论文写入 `~/wiki/` 知识库
 
 **3. analyzed_sources.json 完整格式**
 ```json
@@ -238,6 +258,159 @@ python3 /opt/data/scripts/fetch_ai_news.py 2>/tmp/fetch_stderr.txt > /tmp/ai_new
 - ❌ 不能在日报中显示所有分析结果（只选2篇）
 - ❌ analysis 不能写"见原文"或"略"（必须是完整内容）
 
+## Wiki Writer（知识库写入）— Karpathy LLM Wiki 改造
+
+基于 Karpathy LLM Wiki 模式，每次分析论文后自动写入个人知识库。
+
+### Wiki 路径
+`~/wiki/`
+
+### 三层架构
+```
+wiki/
+├── SCHEMA.md           # 领域定义 + 标签约定
+├── index.md            # 所有论文/文章的索引
+├── log.md              # 操作日志
+├── raw/                # 原始素材（不可修改）
+│   ├── articles/       # 公众号文章、博客
+│   └── papers/         # arXiv PDF 全文
+├── entities/           # 实体页（公司、模型、人物）— 带时间线
+├── concepts/           # 概念页（技术方法）— 自动累积论文引用
+├── comparisons/        # 对比分析
+├── queries/            # 存档的查询结果
+└── daily-digests/      # 每日日报存档
+```
+
+### Wiki Writer 执行步骤（每次分析后自动执行）
+
+**前提：** 先读取 `~/wiki/SCHEMA.md` 了解标签分类和命名规范。
+
+**Step 1: 保存原始素材**
+```bash
+# PDF 保存到 raw/papers/
+cp /tmp/paper_xxx.pdf ~/wiki/raw/papers/{arxiv_id}.pdf
+```
+
+**Step 2: 检查并更新实体页**
+对每篇论文的作者和机构：
+- 搜索 `~/wiki/entities/` 是否已有对应页面
+- **已有页面：** 追加新事件到"最新动态"时间线，更新 `updated` 日期
+- **无页面：** 如果该实体在 2+ 篇来源中出现，创建新实体页
+- 实体页模板：
+```markdown
+---
+title: {实体名称}
+created: {日期}
+updated: {日期}
+type: entity
+tags: [{从 SCHEMA 标签分类中选}]
+sources: [raw/papers/{arxiv_id}.pdf]
+---
+
+# {实体名称}
+
+## 概述
+{一句话描述}
+
+## 最新动态
+| 日期 | 事件 | 来源 |
+|------|------|------|
+| {日期} | {事件描述} | 日报 {编号} |
+
+## 相关论文
+- [[{paper_page_name}]]
+
+## 关联实体
+- [[{related_entity}]]
+```
+
+**Step 3: 检查并更新概念页（累积模式）**
+对每篇论文的 tags：
+- 搜索 `~/wiki/concepts/` 是否已有对应概念页
+- **已有页面：** 追加新论文到"论文时间线"列表，更新 `updated` 和 `累积洞察`
+- **无页面：** 创建新概念页，写入第一篇论文
+- 概念页模板：
+```markdown
+---
+title: {概念名称}
+created: {日期}
+updated: {日期}
+type: concept
+tags: [{从 SCHEMA 标签分类中选}]
+sources: []
+---
+
+# {概念名称}
+
+## 概述
+{技术简述}
+
+## 论文时间线
+- {日期}: [[{paper_page_name}]] - {一句话摘要}（{机构}）
+
+## 累积洞察
+- {从已有论文中总结的趋势/发现}
+
+## 关联概念
+- [[{related_concept}]]
+```
+
+**Step 4: 更新 index.md**
+在对应分类下添加新页面条目，格式：
+```
+- [[{page_name}]] — {一行摘要}
+```
+更新顶部的"最后更新"日期和"总页面数"。
+
+**Step 5: 追加 log.md**
+```
+## [YYYY-MM-DD] ingest | {论文标题}
+- 创建 entities/{xxx}.md
+- 更新 concepts/{xxx}.md（新增 1 篇论文引用）
+- 更新 index.md
+```
+
+**Step 6: 保存日报存档**
+将今日日报保存到 `~/wiki/daily-digests/YYYY-MM-DD.md`。
+
+### Wiki 查询功能
+
+用户可以随时查询 Wiki：
+
+| 用户问题 | 响应方式 |
+|----------|----------|
+| "MoE最近有什么新论文？" | 搜索 `concepts/mixture-of-experts.md`，返回论文时间线 |
+| "DeepSeek做了什么？" | 读取 `entities/deepseek.md`，返回最新动态 |
+| "帮我找关于alignment的论文" | 按标签搜索 concepts/ 下相关页面 |
+| "Wiki里有多少篇关于reasoning的论文？" | 汇总所有 reasoning 相关概念页的论文数 |
+| "给我一个本周总结" | 汇总 `daily-digests/` 下的日报 |
+| "lint一下wiki" | 执行 wiki 健康检查（孤立页、断链、标签审计） |
+
+### 标签自动映射
+
+论文 tags → Wiki 概念页的映射关系：
+```
+reasoning      → concepts/reasoning.md
+alignment      → concepts/alignment.md
+fine-tuning    → concepts/fine-tuning.md
+rag            → concepts/rag.md
+llm-agents     → concepts/llm-agents.md
+multimodal     → concepts/multimodal.md
+code           → concepts/code-generation.md
+safety         → concepts/safety.md
+evaluation     → concepts/evaluation.md
+scaling        → concepts/scaling.md
+```
+如果标签没有对应的概念页，自动创建。
+
+### 与现有流程的集成点
+
+| 现有流程 | Wiki 写入时机 |
+|----------|-------------|
+| cron 日报推送 | 推送完成后执行 Wiki Writer Step 1-6 |
+| 导师文章收录 | 分析完成后执行 Wiki Writer Step 1-6 |
+| 外部来源分析 | 分析完成后执行 Wiki Writer Step 1-6 |
+
 ## 参考项目
 
 - [vigorX777/ai-daily-digest](https://github.com/vigorX777/ai-daily-digest) — Karpathy推荐的90个顶级技术博客 + AI评分系统
@@ -248,6 +421,7 @@ python3 /opt/data/scripts/fetch_ai_news.py 2>/tmp/fetch_stderr.txt > /tmp/ai_new
 - 脚本: `/opt/data/scripts/fetch_ai_news.py`
 - 项目仓库: `/opt/projects/ai-daily-research/`
 - GitHub: https://github.com/CODE-BULIAO/ai-daily-research
+- Wiki 知识库: `~/wiki/`（SCHEMA.md + index.md + log.md + raw/ + entities/ + concepts/）
 
 ## 开发经验
 
