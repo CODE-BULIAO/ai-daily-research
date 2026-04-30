@@ -180,13 +180,51 @@ python3 /opt/data/scripts/fetch_ai_news.py 2>/tmp/fetch_stderr.txt > /tmp/ai_new
 | 脚本300s超时 | PDF下载需5-8分钟，必须用600s超时 |
 | 大厂论文不足 | 1/30是常见比例，无大厂论文时选最相关的AI论文 |
 
-## 外部来源工作流
+## 外部来源工作流（渐进式披露）
 
-当用户提供微信/网页文章链接时：
-1. **提取论文标题** — 从文章中提取论文名称和关键词
-2. **保存为搜索列表** — 存到 `/opt/data/scripts/sources/` 目录
-3. **做日报时搜索原文** — 用标题在 arXiv 搜索，读 PDF 后自己分析
-4. **禁止直接复制** — 不能照搬公众号内容，必须基于原文独立分析
+### 文件结构
+- `/opt/data/scripts/sources/pending_papers.md` — 待分析论文列表（标题+关键词）
+- `/opt/data/cron/output/analyzed_sources.json` — 已分析结果（渐进式披露）
+
+### 流程
+
+**1. 用户提供文章链接时**
+- 提取论文标题和关键词
+- 追加到 `pending_papers.md`（格式：序号. 标题 + 会议 + 关键词）
+
+**2. 做日报时**
+- 从 `pending_papers.md` 取标题列表
+- 用标题在 arXiv 搜索原文，读 PDF 后自己分析
+- 分析完成后：
+  a. 从 `pending_papers.md` 删除该条目
+  b. 在 `analyzed_sources.json` 追加记录（arxiv_id, title, date, full_analysis）
+  c. 如果 `pending_papers.md` 为空则清空文件
+
+**3. 日常查询时（渐进式披露）**
+- 用户问"最近分析了哪些文章？" → 只显示标题列表（不显示全文分析）
+- 用户问"XXX 文章讲了什么？" → 在 `analyzed_sources.json` 中查找，返回 `full_analysis`
+
+**4. analyzed_sources.json 格式**
+```json
+{
+  "last_updated": "2026-04-30",
+  "papers": [
+    {
+      "arxiv_id": "2604.26649",
+      "title": "论文标题",
+      "date": "2026-04-30",
+      "source": "arXiv",
+      "full_analysis": "## 创新点\n...\n## 实验结果\n...",
+      "brief": "arXiv 2604.26649 — 一句话摘要"
+    }
+  ]
+}
+```
+
+**5. 禁止事项**
+- ❌ 不能照搬公众号/网页内容
+- ❌ 不能只列标题不分析
+- ❌ 不能在日报中显示所有分析结果（只选2篇）
 
 ## 参考项目
 
