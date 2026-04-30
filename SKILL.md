@@ -3,7 +3,7 @@ name: ai-daily-research
 description: >
   自动采集、分析并生成每日 AI 新闻日报 + 论文深度研究。覆盖国内外新闻、arXiv/OpenAlex/DBLP 论文。
   支持 PDF 全文提取、作者单位分析、创新点深度解析。大厂论文优先。工作日自动推送到飞书。
-version: 1.2.0
+version: 1.3.0
 author: CODE-BULIAO
 license: MIT
 tags: [AI, News, Papers, Daily, Research, ArXiv, OpenAlex, LLM]
@@ -30,6 +30,8 @@ github: https://github.com/CODE-BULIAO/ai-daily-research
 | 🌍 英文 | Google News(重试机制)/HN(points>30) | |
 | ✍️ 博客 | 11个Karpathy推荐顶级技术博客(Simon Willison/GWERN/Paul Graham等) | RSS |
 | 📄 学术 | arXiv(PDF全文)+OpenAlex(作者单位)+DBLP(会议) | |
+| 📚 出版 | CrossRef(DOI解析,覆盖非arXiv期刊/会议) | 覆盖最广 |
+| 📝 顶会 | OpenReview(NeurIPS/ICLR/ICML poster+oral) | 有完整摘要 |
 
 ## 大厂论文优先
 
@@ -259,3 +261,9 @@ hermes_tools 的 read_file() 返回内容带行号前缀。用原生 Python 文�
 - 环境变量在 Hermes 数据目录的 .env 文件中
 - 追加配置后需要重启 gateway 才生效
 - PID 1 进程可能需要另开终端运行 restart
+
+### ⚠️ 函数定义了但没调用
+`fetch_top_tech_blogs()` 函数定义了但 main() 里从没调用，导致 11 个顶级博客从未被采集。修改脚本后务必检查：新函数是否在 main() 中被调用、新变量是否已定义。
+
+### ⚠️ 文件末尾缺少闭合
+多次修改脚本时丢失了 `try/except` 闭合和 `if __name__ == "__main__"` 入口。每次修改后用 `python3 -c "import py_compile; py_compile.compile('file.py', doraise=True)"` 验证语法。
