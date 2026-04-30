@@ -1,6 +1,6 @@
 # 🤖 AI Daily Research
 
-> 自动采集、分析并生成每日 AI 新闻日报 —— 覆盖国内外新闻 + 学术论文深度解析
+> **Hermes Agent Skill** — 每日自动采集 AI 新闻 + AI 论文，深度分析后推送到微信
 
 [![Hermes Agent Skill](https://img.shields.io/badge/Hermes-Agent-Skill-blue)](#hermes-agent-integration)
 [![Python 3](https://img.shields.io/badge/Python-3.8+-green)](#)
