@@ -180,6 +180,14 @@ python3 /opt/data/scripts/fetch_ai_news.py 2>/tmp/fetch_stderr.txt > /tmp/ai_new
 | 脚本300s超时 | PDF下载需5-8分钟，必须用600s超时 |
 | 大厂论文不足 | 1/30是常见比例，无大厂论文时选最相关的AI论文 |
 
+## 外部来源工作流
+
+当用户提供微信/网页文章链接时：
+1. **提取论文标题** — 从文章中提取论文名称和关键词
+2. **保存为搜索列表** — 存到 `/opt/data/scripts/sources/` 目录
+3. **做日报时搜索原文** — 用标题在 arXiv 搜索，读 PDF 后自己分析
+4. **禁止直接复制** — 不能照搬公众号内容，必须基于原文独立分析
+
 ## 参考项目
 
 - [vigorX777/ai-daily-digest](https://github.com/vigorX777/ai-daily-digest) — Karpathy推荐的90个顶级技术博客 + AI评分系统
