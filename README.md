@@ -21,8 +21,16 @@
 
 ## 📰 输出示例
 
+### 实际推送效果
+
+| 论文深度解析 | 新闻摘要 |
+|-------------|---------|
+| ![论文解析示例](examples/images/result_sample_1.jpg) | ![新闻摘要示例](examples/images/result_sample_2.jpg) |
+
+### 文本格式示例
+
 ```
-🤖 AI 日报 | 2026年4月30日
+🦞 AI 日报 | 2026年4月30日
 
 ### 🔥 AI 要闻（6条）
 
@@ -34,7 +42,7 @@
 2. **亚马逊给Anthropic 250亿，给OpenAI 500亿**
    - ...
 
-### 📄 论文精选（3-5篇）
+### 📄 论文精选（2篇，深度解析）
 
 📌 **Turning the TIDE: Cross-Architecture Distillation for Diffusion LLMs**
 扩散大语言模型的跨架构蒸馏
