@@ -187,4 +187,16 @@ Hermes Agent 是一个开源的 AI 代理框架，支持：
 
 ---
 
+## 🙏 Acknowledgments
+
+本项目的运行由 **小米 MiMo 100T** 提供算力支持。
+
+> MiMo 100T 是小米推出的大语言模型，具备强大的中文理解与生成能力，为本项目的新闻摘要、论文分析、创新点解析等核心功能提供了高质量的 AI 能力支撑。
+
+**Token 来源**：[小米 MiMo 平台](https://platform.xiaomimimo.com?ref=P67V88)
+
+感谢小米 MiMo 团队对开源社区的支持！🎉
+
+---
+
 **Made with ❤️ by Yiwen**
