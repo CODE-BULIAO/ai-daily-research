@@ -1,0 +1,70 @@
+# AI Daily Digest - 数据源配置
+# 每个来源可以单独启用/禁用
+
+chinese_rss:
+  enabled: true
+  sources:
+    - name: 雷峰网
+      url: https://www.leiphone.com/feed
+      tags: [AI, 机器人, 芯片]
+    - name: 量子位
+      url: https://www.qbitai.com/feed
+      tags: [AI, 大模型, AIGC]
+    - name: 极客公园
+      url: https://www.geekpark.net/rss
+      tags: [科技, AI, 产品]
+    - name: 钛媒体
+      url: https://www.tmtpost.com/rss
+      tags: [科技, 商业, AI]
+    - name: IT之家
+      url: https://www.ithome.com/rss/
+      tags: [综合科技]
+    - name: 36氪
+      url: https://36kr.com/feed
+      tags: [科技, 创投, AI]
+      note: 限速，频繁请求会触发验证码
+
+google_news:
+  enabled: true
+  queries:
+    - "AI+artificial+intelligence+when:1d"
+    - "OpenAI+OR+Google+AI+OR+Anthropic+OR+DeepSeek+when:1d"
+  language: en-US
+  country: US
+  retry: 3
+
+hacker_news:
+  enabled: true
+  min_points: 30
+  query: "AI+LLM+GPT+OpenAI+agent"
+  max_items: 10
+
+arxiv:
+  enabled: true
+  max_papers: 5
+  extract_pdf: true
+  max_pdf_pages: 4
+  queries:
+    - name: LLM-Core
+      query: "ti:language+model+OR+ti:LLM+OR+ti:transformer+OR+ti:GPT+OR+ti:chat"
+    - name: LLM-Training
+      query: "ti:reasoning+AND+cat:cs.CL+OR+ti:fine-tuning+AND+cat:cs.CL+OR+ti:alignment+AND+cat:cs.CL"
+    - name: LLM-Agent
+      query: "ti:agent+AND+(cat:cs.CL+OR+cat:cs.AI)+OR+ti:RAG+OR+ti:retrieval+AND+cat:cs.CL"
+    - name: LLM-Eval
+      query: "ti:benchmark+AND+cat:cs.CL+OR+ti:safety+AND+cat:cs.CL+OR+ti:evaluation+AND+cat:cs.CL"
+
+openalex:
+  enabled: true
+  max_papers: 5
+  search: "large language model OR deep learning OR AI agent OR neural network OR transformer"
+  min_citations: 0
+
+dblp:
+  enabled: true
+  max_papers: 5
+  query: "large language model OR deep learning OR AI agent 2026"
+
+output:
+  dir: ./output
+  format: json
