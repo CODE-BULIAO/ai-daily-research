@@ -613,6 +613,105 @@ def fetch_dblp_papers(max_results=5):
     return items
 
 
+def fetch_crossref_papers(max_results=5):
+    """Search CrossRef for AI/ML papers not on arXiv."""
+    items = []
+    queries = [
+        "large language model",
+        "AI agent reasoning",
+        "multimodal model",
+    ]
+    for q in queries[:2]:
+        params = urllib.parse.urlencode({
+            'query': q,
+            'filter': 'from-pub-date:2026-04-23,has-full-text:true',
+            'sort': 'relevance',
+            'rows': max_results,
+            'select': 'DOI,title,author,abstract,published-print,container-title,is-referenced-by-count,URL',
+        })
+        url = f"https://api.crossref.org/works?{params}"
+        data = fetch_url(url, timeout=20)
+        if not data:
+            continue
+        try:
+            result = json.loads(data)
+            for work in result.get('message', {}).get('items', []):
+                title = work.get('title', [''])[0] if work.get('title') else ''
+                if not title:
+                    continue
+                authors = [{'name': f"{a.get('given','')} {a.get('family','')}".strip(), 'affiliation': ''} for a in work.get('author', [])]
+                abstract = work.get('abstract', '')
+                if abstract:
+                    abstract = re.sub(r'<[^>]+>', '', abstract)  # Strip HTML tags
+                pub_date = ''
+                pp = work.get('published-print', {}).get('date-parts', [[]])
+                if pp and pp[0]:
+                    pub_date = '-'.join(str(x) for x in pp[0][:3])
+                venue = work.get('container-title', [''])[0] if work.get('container-title') else ''
+                doi = work.get('DOI', '')
+                url = work.get('URL', f'https://doi.org/{doi}')
+                items.append({
+                    'title': title,
+                    'link': url,
+                    'authors': authors,
+                    'author_names': [a['name'] for a in authors],
+                    'affiliations': [],
+                    'abstract': abstract,
+                    'full_text': '',
+                    'venue': venue,
+                    'cited_by': work.get('is-referenced-by-count', 0),
+                    'source': 'CrossRef',
+                    'date': pub_date,
+                    'doi': doi,
+                })
+        except (json.JSONDecodeError, KeyError):
+            continue
+    return items
+
+
+def fetch_openreview_papers(max_results=5):
+    """Search OpenReview for recent AI/ML papers (NeurIPS, ICLR, ICML)."""
+    items = []
+    params = urllib.parse.urlencode({
+        'content.venue': 'ICLR 2026 poster|ICLR 2026 oral|NeurIPS 2025|ICML 2025',
+        'sort': 'cdate:desc',
+        'limit': max_results,
+    })
+    url = f"https://api2.openreview.net/notes/search?{params}"
+    data = fetch_url(url, timeout=20)
+    if not data:
+        return items
+    try:
+        result = json.loads(data)
+        for note in result.get('notes', []):
+            content = note.get('content', {})
+            title = content.get('title', {}).get('value', '') if isinstance(content.get('title'), dict) else content.get('title', '')
+            abstract = content.get('abstract', {}).get('value', '') if isinstance(content.get('abstract'), dict) else content.get('abstract', '')
+            venue = content.get('venue', {}).get('value', '') if isinstance(content.get('venue'), dict) else content.get('venue', '')
+            authors_data = content.get('authors', {})
+            if isinstance(authors_data, dict):
+                authors_list = authors_data.get('value', [])
+            else:
+                authors_list = authors_data if isinstance(authors_data, list) else []
+            authors = [{'name': a, 'affiliation': ''} for a in authors_list]
+            forum_id = note.get('forum', note.get('id', ''))
+            items.append({
+                'title': title,
+                'link': f'https://openreview.net/forum?id={forum_id}',
+                'authors': authors,
+                'author_names': authors_list,
+                'affiliations': [],
+                'abstract': abstract,
+                'full_text': '',
+                'venue': venue,
+                'source': 'OpenReview',
+                'date': note.get('cdate', note.get('odate', ''))[:10] if note.get('cdate') or note.get('odate') else '',
+            })
+    except (json.JSONDecodeError, KeyError, TypeError):
+        pass
+    return items
+
+
 def main():
     print("🔄 Collecting from all sources...", file=sys.stderr)
 
@@ -644,11 +743,19 @@ def main():
     dblp_raw = fetch_dblp_papers(max_results=8)
     print(f"    ✓ {len(dblp_raw)} papers", file=sys.stderr)
 
+    print("  📚 CrossRef (non-arXiv papers)...", file=sys.stderr)
+    crossref_raw = fetch_crossref_papers(max_results=5)
+    print(f"    ✓ {len(crossref_raw)} papers", file=sys.stderr)
+
+    print("  📝 OpenReview (NeurIPS/ICLR/ICML)...", file=sys.stderr)
+    openreview_raw = fetch_openreview_papers(max_results=5)
+    print(f"    ✓ {len(openreview_raw)} papers", file=sys.stderr)
+
     # Merge all news into one pool
     all_news = cn_raw + en_raw + hn_raw + blogs_raw
     
     # Merge papers and prioritize by focus company
-    all_papers = arxiv_raw + openalex_raw + dblp_raw
+    all_papers = arxiv_raw + openalex_raw + dblp_raw + crossref_raw + openreview_raw
     
     # Mark focus company papers
     for p in all_papers:
