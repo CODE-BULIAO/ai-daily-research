@@ -473,6 +473,10 @@ def main():
     hn_raw = fetch_hacker_news()
     print(f"    ✓ {len(hn_raw)} items", file=sys.stderr)
 
+    print("  ✍️  Top Tech Blogs (Karpathy recommended)...", file=sys.stderr)
+    blogs_raw = fetch_top_tech_blogs()
+    print(f"    ✓ {len(blogs_raw)} items", file=sys.stderr)
+
     print("  📄 arXiv (with PDF extraction)...", file=sys.stderr)
     arxiv_raw = fetch_arxiv_papers_with_fulltext(max_results=8)
     print(f"    ✓ {len(arxiv_raw)} papers with full text", file=sys.stderr)
@@ -486,7 +490,7 @@ def main():
     print(f"    ✓ {len(dblp_raw)} papers", file=sys.stderr)
 
     # Merge all news into one pool
-    all_news = cn_raw + en_raw + hn_raw + blogs_raw + blogs_raw
+    all_news = cn_raw + en_raw + hn_raw + blogs_raw
     
     # Merge papers and prioritize by focus company
     all_papers = arxiv_raw + openalex_raw + dblp_raw
@@ -525,3 +529,9 @@ def main():
             json.dump(output, f, ensure_ascii=False, indent=2)
         print(f"💾 Saved to {filename}", file=sys.stderr)
 
+    except Exception as e:
+        print(f"⚠️  Failed to save raw file: {e}", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()
