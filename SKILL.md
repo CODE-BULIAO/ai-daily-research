@@ -184,47 +184,57 @@ python3 /opt/data/scripts/fetch_ai_news.py 2>/tmp/fetch_stderr.txt > /tmp/ai_new
 
 ### 文件结构
 - `/opt/data/scripts/sources/pending_papers.md` — 待分析论文列表（标题+关键词）
-- `/opt/data/cron/output/analyzed_sources.json` — 已分析结果（渐进式披露）
+- `/opt/data/cron/output/analyzed_sources.json` — 已分析结果（完整论文分析）
 
 ### 流程
 
 **1. 用户提供文章链接时**
 - 提取论文标题和关键词
-- 追加到 `pending_papers.md`（格式：序号. 标题 + 会议 + 关键词）
+- 追加到 `pending_papers.md`
 
 **2. 做日报时**
 - 从 `pending_papers.md` 取标题列表
 - 用标题在 arXiv 搜索原文，读 PDF 后自己分析
 - 分析完成后：
   a. 从 `pending_papers.md` 删除该条目
-  b. 在 `analyzed_sources.json` 追加记录（arxiv_id, title, date, full_analysis）
+  b. 在 `analyzed_sources.json` 追加**完整分析记录**
   c. 如果 `pending_papers.md` 为空则清空文件
 
-**3. 日常查询时（渐进式披露）**
-- 用户问"最近分析了哪些文章？" → 只显示标题列表（不显示全文分析）
-- 用户问"XXX 文章讲了什么？" → 在 `analyzed_sources.json` 中查找，返回 `full_analysis`
-
-**4. analyzed_sources.json 格式**
+**3. analyzed_sources.json 完整格式**
 ```json
 {
-  "last_updated": "2026-04-30",
-  "papers": [
-    {
-      "arxiv_id": "2604.26649",
-      "title": "论文标题",
-      "date": "2026-04-30",
-      "source": "arXiv",
-      "full_analysis": "## 创新点\n...\n## 实验结果\n...",
-      "brief": "arXiv 2604.26649 — 一句话摘要"
-    }
-  ]
+  "arxiv_id": "2604.26649",
+  "title": "论文标题",
+  "date": "2026-04-30",
+  "url": "https://arxiv.org/abs/2604.26649",
+  "authors": "Author1, Author2, Author3",
+  "affiliations": ["Google DeepMind", "Stanford University"],
+  "venue": "CVPR 2026",
+  "analysis": {
+    "problem_background": "问题背景 + 现有方法不足",
+    "method_overview": "核心方法概述",
+    "key_innovation": "关键创新点",
+    "experiment_results": "实验结果（具体数据）",
+    "significance": "重要性 + 未来影响"
+  },
+  "tags": ["reasoning", "multimodal", "selective-thinking"],
+  "brief": "一句话中文摘要"
 }
 ```
+
+**4. 渐进式披露规则**
+| 用户问题 | 响应方式 |
+|----------|----------|
+| "最近分析了哪些文章？" | 只显示标题 + brief（不展开分析） |
+| "XXX 文章讲了什么？" | 返回完整 analysis（5维度） |
+| "帮我找找关于 reasoning 的论文" | 根据 tags 筛选，返回匹配的标题列表 |
+| "把 XXX 的分析发给我" | 返回完整 analysis + PDF 链接 |
 
 **5. 禁止事项**
 - ❌ 不能照搬公众号/网页内容
 - ❌ 不能只列标题不分析
 - ❌ 不能在日报中显示所有分析结果（只选2篇）
+- ❌ analysis 不能写"见原文"或"略"（必须是完整内容）
 
 ## 参考项目
 
