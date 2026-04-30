@@ -133,13 +133,16 @@ OpenAI, Google DeepMind, Anthropic, Meta AI/FAIR, Microsoft Research, Apple AI, 
 - Python 3 + pymupdf (PDF文本提取)
 - 标准库: urllib, xml, json, re
 
-## 已知限制
+## 已知限制 & 踩坑
 
-1. 36氪 RSS 限速，频繁请求会触发验证码
-2. Google News RSS 偶发超时，需重试
-3. arXiv PDF 提取限前4页 (约8K字符)
-4. 非arXiv论文可能无全文 (OpenAlex/DBLP)
-5. 小红书/微博/知乎等SPA平台无法抓取
+1. **36氪 RSS 限速**：频繁请求会触发验证码，单次运行不要重复请求
+2. **Google News 偶发超时**：必须加 retry 逻辑 + 备选 query URL
+3. **中文 SPA 平台无法爬取**：小红书、微博、知乎、即刻、机器之心（已关停RSS）全部是 SPA，curl 只能拿到空壳
+4. **arXiv 搜索关键词**：用 `ti:` 前缀搜标题（如 `ti:language+model`）比 `cat:` 搜分类更精准，避免捞到不相关的论文
+5. **PDF 提取限前4页**：约 8K 字符，足够 LLM 做摘要但不够全文分析
+6. **非 arXiv 论文无全文**：OpenAlex/DBLP 的论文只有摘要，没有 PDF 全文
+7. **GitHub PAT 安全**：push 后必须 `git remote set-url origin` 清除 token
+8. **论文筛选**：早期用 `cat:cs.AI+OR+cat:cs.CL` 会捞到大量非 LLM 论文（凸优化、信号处理等），必须用更具体的查询词
 
 ## 参考工具
 
