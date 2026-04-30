@@ -264,6 +264,154 @@ def download_and_extract_pdf(arxiv_id, max_pages=5):
         return f"[PDF extraction failed: {e}]"
 
 
+# ==============================
+# Enhanced Affiliation Extraction (from hermes-arxiv-agent)
+# ==============================
+ORG_KEYWORDS = {
+    "university", "institute", "school", "college", "department", "laboratory",
+    "lab", "centre", "center", "research", "academy", "hospital", "faculty",
+    "polytechnic", "technological", "technology", "technion",
+    "google", "microsoft", "meta", "apple", "amazon", "ibm", "intel", "nvidia",
+    "amd", "qualcomm", "samsung", "huawei", "tencent", "alibaba", "bytedance",
+    "deepmind", "openai", "anthropic", "mistral", "cohere", "huggingface",
+    "mit", "stanford", "harvard", "princeton", "yale", "berkeley", "cornell",
+    "oxford", "cambridge", "eth", "epfl", "inria", "tum", "kaist", "postech",
+    "cmu", "carnegie", "gatech", "purdue", "uiuc", "columbia", "caltech",
+    "ucla", "ucsd", "toronto", "montreal", "tsinghua", "peking", "fudan",
+    "zhejiang", "nanjing", "shanghai", "beihang", "sjtu", "ustc", "unist",
+    "ntu", "nus", "renmin", "cas", "academy of military sciences",
+    "baidu", "bytedance", "xiaomi", "meituan", "jd.com", "netease",
+    "kuaishou", "iflytek", "sensetime", "moonshot", "zhipu", "minimax",
+    "deepseek", "baichuan", "01.ai",
+}
+
+AFFILIATION_HINTS = {
+    "engineering", "science", "computer", "mathematics", "statistics", "ai",
+    "artificial intelligence", "informatics", "information", "electrical",
+    "electronic", "automation", "physics", "medicine", "medical", "business",
+    "data", "robotics", "systems", "communication", "software",
+}
+
+NOISE_PATTERNS_AFF = [
+    r"https?://\S+",
+    r"www\.\S+",
+    r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}\b",
+    r"\barxiv\b", r"\bcopyright\b", r"\bpreprint\b", r"\baccepted\b",
+    r"\bfigure\b", r"\btable\b", r"\bappendix\b",
+]
+
+BAD_LINE_PATTERNS = [
+    r"\babstract\b", r"\bintroduction\b", r"\bcontributions?\b",
+    r"\brelated work\b",
+    r"\bwe (?:study|show|propose|introduce|present|analyze|derive|establish)\b",
+    r"\bour (?:method|analysis|results|experiments|framework)\b",
+    r"\baccuracy\b", r"\bbenchmark\b", r"\bproof\b", r"\btheorem\b", r"\bresults?\b",
+]
+
+KNOWN_SUFFIXES = [
+    "University", "Institute", "School", "College", "Department", "Laboratory",
+    "Research", "Center", "Centre", "Hospital", "Sciences", "Technology",
+    "Engineering", "Mathematics", "Physics", "Medicine",
+]
+
+SMALL_WORDS = ["of", "the", "and", "for", "in", "on", "at", "to", "by", "with", "from",
+               "de", "du", "la", "le", "da", "del", "di"]
+
+
+def _normalize_aff_text(text):
+    text = text.replace("\u2013", "-").replace("\u2014", "-").replace("\u00a0", " ")
+    return re.sub(r'\s+', ' ', text).strip(" ,;:-")
+
+
+def _fix_glued_words(text):
+    text = _normalize_aff_text(text)
+    text = re.sub(r'(?<=\d)(?=[A-Za-z])', ' ', text)
+    text = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', text)
+    for word in SMALL_WORDS:
+        text = re.sub(rf"(?i)([A-Za-z])({word})([A-Z])", r"\1 \2 \3", text)
+        text = re.sub(rf"(?i)([A-Za-z])({word})([a-z])", r"\1 \2 \3", text)
+    for suffix in KNOWN_SUFFIXES:
+        text = re.sub(rf"(?<=[A-Za-z])(?={suffix}\b)", " ", text)
+    return re.sub(r'\s+', ' ', text).strip(" ,;:-")
+
+
+def _has_org_signal(text):
+    low = text.lower()
+    return any(k in low for k in ORG_KEYWORDS) or any(k in low for k in AFFILIATION_HINTS)
+
+
+def _looks_like_affiliation(text):
+    if not text:
+        return False
+    low = text.lower()
+    if any(re.search(p, low) for p in BAD_LINE_PATTERNS):
+        return False
+    if len(re.findall(r"[=<>±∑∫]", text)) > 0:
+        return False
+    if not _has_org_signal(text):
+        return False
+    letters = len(re.findall(r"[A-Za-z]", text))
+    if letters < 6:
+        return False
+    return True
+
+
+def _clean_aff_candidate(text):
+    text = _normalize_aff_text(text)
+    text = re.sub(r"[\*†‡§¶‖#]+", " ", text)
+    text = re.sub(r"(?<![A-Za-z])[\^]?\d+(?=[A-Za-z])", "", text)
+    text = re.sub(r"^\s*[\^]?\d+[\)\].,:-]?\s*", "", text)
+    for pattern in NOISE_PATTERNS_AFF:
+        text = re.sub(pattern, " ", text, flags=re.IGNORECASE)
+    text = _fix_glued_words(text)
+    text = re.sub(r"\([^)]*@[^)]*\)", " ", text)
+    return re.sub(r'\s+', ' ', text).strip(" ,;:-")
+
+
+def extract_affiliations_from_text(pdf_text, max_affiliations=10):
+    """Extract affiliations from extracted PDF text using heuristic rules.
+    Inspired by hermes-arxiv-agent's reextract_affiliations.py approach.
+    """
+    if not pdf_text or pdf_text.startswith("[PDF extraction"):
+        return []
+
+    # Take first ~3000 chars (likely title/author/abstract area)
+    header_text = pdf_text[:3000]
+    lines = [l.strip() for l in re.split(r'\n+', header_text) if l.strip()]
+
+    # Merge hyphenated cross-line words
+    merged = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        while line.endswith("-") and i + 1 < len(lines):
+            line = line[:-1] + lines[i + 1]
+            i += 1
+        merged.append(line)
+        i += 1
+
+    candidates = []
+    for line in merged:
+        cleaned = _clean_aff_candidate(line)
+        if _looks_like_affiliation(cleaned):
+            # Split numbered affiliations: "1 MIT 2 Stanford" → ["MIT", "Stanford"]
+            parts = re.split(r'\s(?=\d+[)\].,:-]?\s*[A-Z])', cleaned)
+            for part in parts:
+                part = _clean_aff_candidate(part)
+                if _looks_like_affiliation(part):
+                    candidates.append(part)
+
+    # Deduplicate
+    seen = set()
+    result = []
+    for c in candidates:
+        key = re.sub(r'[^a-z0-9]+', '', c.lower())
+        if key and key not in seen:
+            seen.add(key)
+            result.append(c)
+    return result[:max_affiliations]
+
+
 def fetch_arxiv_papers_with_fulltext(max_results=8):
     """Fetch arXiv papers with author affiliations, venue info, and full text.
     Only fetches LLM-related papers using targeted search queries."""
@@ -322,6 +470,13 @@ def fetch_arxiv_papers_with_fulltext(max_results=8):
 
                 author_names = [a['name'] for a in authors_info]
                 affiliations = list(set([a['affiliation'] for a in authors_info if a['affiliation']]))
+                
+                # Enhanced affiliation extraction from PDF if XML has none
+                if not affiliations and full_text and not full_text.startswith("[PDF extraction"):
+                    pdf_affs = extract_affiliations_from_text(full_text)
+                    if pdf_affs:
+                        affiliations = pdf_affs
+                        print(f"    🏛️  Extracted {len(pdf_affs)} affiliations from PDF", file=sys.stderr)
 
                 items.append({
                     'title': title,
