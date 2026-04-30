@@ -1,5 +1,5 @@
 ---
-name: ai-daily-digest
+name: ai-daily-research
 description: >
   自动采集、分析并生成每日 AI 新闻日报。覆盖国内/国际新闻、arXiv/OpenAlex/DBLP 论文。
   支持 PDF 全文提取、作者单位分析、创新点深度解析。每天早上9点自动推送到微信。
@@ -8,7 +8,7 @@ author: Hermes Agent
 tags: [AI, News, Papers, Daily, Digest, ArXiv, OpenAlex]
 ---
 
-# AI Daily Digest 系统
+# AI Daily Research 系统
 
 ## 架构概览
 

@@ -1,4 +1,4 @@
-# 🤖 AI Daily Digest
+# 🤖 AI Daily Research
 
 > 自动采集、分析并生成每日 AI 新闻日报 —— 覆盖国内外新闻 + 学术论文深度解析
 
@@ -62,8 +62,8 @@ pip install pymupdf
 ### 2. 下载脚本
 
 ```bash
-git clone https://github.com/Yiwen20/ai-daily-digest.git
-cd ai-daily-digest
+git clone https://github.com/Yiwen20/ai-daily-research.git
+cd ai-daily-research
 ```
 
 ### 3. 手动运行
@@ -80,7 +80,7 @@ python3 scripts/fetch_ai_news.py
 # 在 Hermes Agent 中创建定时任务
 cronjob(
     action="create",
-    name="AI Daily Digest",
+    name="AI Daily Research",
     schedule="0 9 * * 1-5",  # 工作日 9:00
     deliver="weixin"  # 推送到微信
 )
@@ -93,13 +93,13 @@ cronjob(
 crontab -e
 
 # 添加（工作日 9:00 运行）
-0 9 * * 1-5 cd /path/to/ai-daily-digest && python3 scripts/fetch_ai_news.py >> /var/log/ai-daily.log 2>&1
+0 9 * * 1-5 cd /path/to/ai-daily-research && python3 scripts/fetch_ai_news.py >> /var/log/ai-daily.log 2>&1
 ```
 
 ## 📁 项目结构
 
 ```
-ai-daily-digest/
+ai-daily-research/
 ├── README.md              # 项目介绍
 ├── SKILL.md               # Hermes Agent Skill 定义
 ├── LICENSE                # MIT 协议
