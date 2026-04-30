@@ -142,12 +142,30 @@ arxiv:
 | Google News | 全球媒体聚合 |
 | Hacker News | 技术社区热议 |
 
+### 顶级技术博客（Karpathy 推荐）
+| 来源 | 特点 |
+|------|------|
+| Simon Willison | LLM 应用专家 |
+| Antirez (Redis 作者) | 系统/编程 |
+| GWERN | AI 深度分析 |
+| Paul Graham | 创业/技术思考 |
+| Dan Luu | 系统/性能 |
+| Julia Evans | 编程探索 |
+
 ### 学术来源
 | 来源 | 特点 |
 |------|------|
 | arXiv | 最新预印本，支持 PDF 全文提取 |
 | OpenAlex | 已发表论文，含作者单位和引用数 |
 | DBLP | CS 会议论文，含会议简称 |
+
+### 🏢 重点跟踪公司
+
+**国际大厂**：OpenAI, Google DeepMind, Anthropic, Meta AI, Microsoft, NVIDIA, xAI, Mistral AI 等
+
+**国内大厂**：百度, 阿里, 腾讯, 字节/豆包, 华为, 美团, 小米, 商汤, 月之暗面/Kimi, 智谱AI/GLM, DeepSeek, MiniMax, 蚂蚁集团, 京东, 网易, 快手, 科大讯飞 等
+
+> 💡 论文筛选优先选择来自以上公司的研究，确保日报覆盖行业前沿动态。
 
 ## 🤖 Hermes Agent 集成
 

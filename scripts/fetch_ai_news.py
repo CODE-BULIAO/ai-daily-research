@@ -35,7 +35,22 @@ RSS_FEEDS = {
     "极客公园": "https://www.geekpark.net/rss",
     "钛媒体": "https://www.tmtpost.com/rss",
     "IT之家": "https://www.ithome.com/rss/",
-    "36氪": "https://36kr.com/feed",
+    
+}
+
+# Top Tech Blogs (Karpathy recommended)
+TOP_TECH_BLOGS = {
+    "simonwillison.net": "https://simonwillison.net/atom/everything/",
+    "antirez.com": "http://antirez.com/rss",
+    "gwern.net": "https://gwern.substack.com/feed",
+    "paulgraham.com": "http://www.aaronsw.com/2002/feeds/pgessays.rss",
+    "mitchellh.com": "https://mitchellh.com/feed.xml",
+    "overreacted.io": "https://overreacted.io/rss.xml",
+    "matklad.github.io": "https://matklad.github.io/feed.xml",
+    "minimalir.com": "https://minimaxir.com/index.xml",
+    "geohot.github.io": "https://geohot.github.io/blog/feed.xml",
+    "danluu.com": "https://danluu.com/atom.xml",
+    "jvns.ca": "https://jvns.ca/atom.xml",
 }
 
 GOOGLE_NEWS_URLS = [
@@ -133,6 +148,17 @@ def fetch_all_chinese_news():
         if xml:
             items = parse_rss(xml, name, max_items=12)
             all_items.extend(items)
+    return all_items
+
+
+def fetch_top_tech_blogs():
+    all_items = []
+    for name, url in TOP_TECH_BLOGS.items():
+        xml = fetch_url(url, timeout=10)
+        if xml:
+            items = parse_rss(xml, f"Blog:{name}", max_items=3)
+            all_items.extend(items)
+        time.sleep(0.2)
     return all_items
 
 
@@ -460,7 +486,7 @@ def main():
     print(f"    ✓ {len(dblp_raw)} papers", file=sys.stderr)
 
     # Merge all news into one pool
-    all_news = cn_raw + en_raw + hn_raw
+    all_news = cn_raw + en_raw + hn_raw + blogs_raw + blogs_raw
     
     # Merge papers and prioritize by focus company
     all_papers = arxiv_raw + openalex_raw + dblp_raw
@@ -498,11 +524,4 @@ def main():
         with open(filename, 'w') as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
         print(f"💾 Saved to {filename}", file=sys.stderr)
-    except Exception as e:
-        print(f"⚠️ Save failed: {e}", file=sys.stderr)
 
-    print("✅ Done!", file=sys.stderr)
-
-
-if __name__ == '__main__':
-    main()
