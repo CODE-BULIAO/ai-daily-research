@@ -24,13 +24,37 @@
 | 功能 | 说明 |
 |------|------|
 | 🗞️ **14+ 数据源** | 中文RSS + Google News + HN + arXiv + OpenAlex + DBLP + CrossRef + OpenReview + 11个顶级博客 |
-| 📄 **论文全文分析** | 自动下载 arXiv PDF，提取全文内容进行深度分析 |
+| 📄 **论文存储原文** | 论文 PDF 全文提取后存入 `raw/papers/`，LLM 按需读取，不塞满 context window |
 | 🔬 **创新点深度解析** | 5维度分析：问题背景→现有不足→核心方法→关键创新→实验结果 |
 | 👤 **作者单位提取** | 从 PDF 和元数据中提取 100+ 机构关键词匹配 |
 | 📍 **发表位置标注** | 显示会议/期刊名称（NeurIPS、ICML、ACL 等） |
 | 🏢 **大厂论文优先** | 30+ 重点公司（OpenAI、Google、字节、华为等）论文优先展示 |
 | 📚 **外部文章收录** | 发链接自动提取论文标题，加入待分析列表 |
 | 🔄 **渐进式披露** | 完整分析存档，平时只显示标题，用户问才展开 |
+
+## 🏗️ 架构（v2 — 存储原文）
+
+```
+Phase 1: 采集+存原文 (Python脚本)
+├── 新闻: RSS/API → JSON (标题+摘要, 不存原文) ×50条
+└── 论文: PDF提取/摘要 → 存 raw/papers/{date}/{id}.txt ×~14篇
+                                          ↓
+Phase 2: 选+读原文+分析 (LLM)
+├── 读轻量元数据JSON → 按重要性选6条新闻 + 2篇论文
+├── 读选中论文的 raw/papers/{date}/{id}.txt 原文
+├── 基于原文生成深度分析
+└── 写飞书 + Wiki
+```
+
+**核心设计**：脚本存原文到磁盘，LLM 按需读取选中的论文。新闻只看摘要，论文读全文。
+
+### 存储路径
+
+| 内容 | 路径 |
+|------|------|
+| 论文原文 | `/opt/data/cron/raw/papers/{YYYY-MM-DD}/{arxiv_id}.txt` |
+| 元数据JSON | `/opt/data/cron/output/ai_raw_{YYYYMMDD}.json` |
+| 分析记录 | `/opt/data/cron/output/analyzed_papers.json` |
 
 ## 📰 输出示例
 
@@ -43,7 +67,6 @@
    - 谷歌VP：AI智能体时代需要针对性优化的芯片
 
 ### 📄 论文精选（2篇，深度解析）
-
 📌 **Turning the TIDE: Cross-Architecture Distillation for Diffusion LLMs**
 - 👤 Gongbo Zhang 等 | 北京大学、浙江大学
 - 📍 arXiv | cs.CL, cs.AI, cs.LG
@@ -74,7 +97,7 @@ cd ai-daily-research
 ### 3. 手动运行
 
 ```bash
-python3 scripts/fetch_ai_news.py
+python3 fetch_ai_news.py
 ```
 
 ### 4. 定时任务（Hermes Agent）
@@ -96,12 +119,14 @@ ai-daily-research/
 ├── README.md                # 项目介绍
 ├── SKILL.md                 # Hermes Agent Skill 定义（完整流程）
 ├── LICENSE                  # MIT 协议
-├── scripts/
-│   └── fetch_ai_news.py     # 核心采集脚本（14+ 数据源）
-├── config/
-│   └── sources.yaml         # 数据源配置
-└── examples/
-    └── sample_output.md     # 日报示例
+└── fetch_ai_news.py         # 核心采集脚本（14+ 数据源）
+
+运行时数据：
+/opt/data/cron/
+├── raw/papers/{date}/       # 论文原文存档
+├── output/
+│   ├── ai_raw_YYYYMMDD.json # 每日采集元数据
+│   └── analyzed_papers.json # 已分析论文记录
 ```
 
 ## 📊 数据源详情（14+）
@@ -140,7 +165,7 @@ ai-daily-research/
 ### 学术来源（6个）
 | 来源 | 覆盖范围 | 优势 |
 |------|---------|------|
-| arXiv | 预印本（大部分 AI 论文） | 有 PDF 全文 |
+| arXiv | 预印本（大部分 AI 论文） | 有 PDF 全文，存入 raw/ |
 | OpenAlex | 期刊+会议（引用数据） | 有作者单位 |
 | DBLP | 会议论文集 | 会议信息全 |
 | CrossRef | 出版商论文（DOI解析） | 覆盖最广 |
@@ -179,11 +204,13 @@ ai-daily-research/
 ```
 用户给链接 → 自动提取论文标题 → 存入 pending_papers.md
     ↓
-做日报时搜 arXiv 原文 → 读 PDF → 完整分析（5维度）
+脚本采集新闻+论文 → 存原文到 raw/papers/ → 输出轻量元数据JSON
+    ↓
+LLM 选6条新闻 + 2篇论文 → 读原文 → 完整分析（5维度）
     ↓
 从 pending 删除 → 存入 analyzed_sources.json
     ↓
-飞书推送日报 → 同时存档完整分析
+飞书推送日报 → Wiki 写入实体/概念/索引/存档
 ```
 
 ## 🤖 Hermes Agent 集成
@@ -206,6 +233,12 @@ Hermes Agent 是一个开源的 AI 代理框架，支持：
 4. 创建定时任务，自动推送日报
 
 ## 📝 更新日志
+
+### v2.0.0 (2026-05-06)
+- 🏗️ **架构重构**：论文 PDF 全文存入 `raw/papers/` 目录，LLM 按需读取
+- ⚡ **精简采集**：新闻 100→50 条，论文 20→~14 篇，PDF 下载速度提升
+- 🗑️ 移除 JSON 内联 `full_text` 字段，改用 `raw_text_path` 指向文件
+- 📊 元数据 JSON 新增 `raw_files` 映射表
 
 ### v1.2.0 (2026-04-30)
 - ✨ 新增 CrossRef + OpenReview 学术来源
