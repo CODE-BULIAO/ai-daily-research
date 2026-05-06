@@ -237,15 +237,22 @@ def extract_arxiv_authors_and_affiliations(xml_text):
         return [], "", "", ""
 
 
-def _save_raw_text(text, category, date_str, doc_id):
-    """Save raw text to disk. Returns the file path."""
+def _save_raw_text(text, category, date_str, doc_id, meta=None):
+    """Save raw text as JSON to disk. Returns the file path."""
     raw_dir = os.path.join(RAW_ROOT, category, date_str)
     os.makedirs(raw_dir, exist_ok=True)
     # Sanitize doc_id for filename
     safe_id = re.sub(r'[^\w\-.]', '_', doc_id)
-    filepath = os.path.join(raw_dir, f"{safe_id}.txt")
+    filepath = os.path.join(raw_dir, f"{safe_id}.json")
+    payload = {
+        "text": text,
+        "chars": len(text),
+        "saved_at": datetime.now(timezone(timedelta(hours=8))).isoformat(),
+    }
+    if meta:
+        payload.update(meta)
     with open(filepath, 'w', encoding='utf-8') as f:
-        f.write(text)
+        json.dump(payload, f, ensure_ascii=False, indent=2)
     return filepath
 
 
@@ -277,7 +284,8 @@ def download_and_extract_pdf(arxiv_id, max_pages=5):
         full_text = full_text[:12000]  # Store up to 12K (more than before)
 
         # Save to disk
-        raw_path = _save_raw_text(full_text, 'papers', today, arxiv_id)
+        meta = {"arxiv_id": arxiv_id, "source": "arXiv"}
+        raw_path = _save_raw_text(full_text, 'papers', today, arxiv_id, meta=meta)
         return full_text[:8000], raw_path  # Return 8K for inline use, save full to disk
     except Exception as e:
         return f"[PDF extraction failed: {e}]", None
@@ -568,7 +576,8 @@ def fetch_openalex_papers(max_results=5):
             if abstract:
                 doc_id = re.sub(r'[^\w\-]', '_', title[:60].strip())
                 today = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d')
-                raw_path = _save_raw_text(abstract, 'papers', today, doc_id)
+                meta = {"title": title, "source": "OpenAlex", "venue": venue}
+                raw_path = _save_raw_text(abstract, 'papers', today, doc_id, meta=meta)
 
             items.append({
                 'title': title,

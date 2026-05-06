@@ -52,7 +52,7 @@ Phase 2: 选+读原文+分析 (LLM)
 
 | 内容 | 路径 |
 |------|------|
-| 论文原文 | `/opt/data/cron/raw/papers/{YYYY-MM-DD}/{arxiv_id}.txt` |
+| 论文原文 | `/opt/data/cron/raw/papers/{YYYY-MM-DD}/{arxiv_id}.json` |
 | 元数据JSON | `/opt/data/cron/output/ai_raw_{YYYYMMDD}.json` |
 | 分析记录 | `/opt/data/cron/output/analyzed_papers.json` |
 
