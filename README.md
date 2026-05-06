@@ -37,11 +37,11 @@
 ```
 Phase 1: 采集+存原文 (Python脚本)
 ├── 新闻: RSS/API → JSON (标题+摘要, 不存原文) ×50条
-└── 论文: PDF提取/摘要 → 存 raw/papers/{date}/{id}.txt ×~14篇
+└── 论文: PDF提取/摘要 → 存 raw/papers/{date}/{id}.json ×~14篇
                                           ↓
 Phase 2: 选+读原文+分析 (LLM)
 ├── 读轻量元数据JSON → 按重要性选6条新闻 + 2篇论文
-├── 读选中论文的 raw/papers/{date}/{id}.txt 原文
+├── 读选中论文的 raw/papers/{date}/{id}.json 原文
 ├── 基于原文生成深度分析
 └── 写飞书 + Wiki
 ```
