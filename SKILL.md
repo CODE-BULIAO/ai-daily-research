@@ -11,7 +11,7 @@ version: 3.0.0
 author: CODE-BULIAO
 license: MIT
 tags: [AI, News, Papers, Daily, Research, ArXiv, OpenAlex, LLM]
-github: https://github.com/CODE-BULIAO/ai-daily-research
+github: https://github.com/CODE-BULIAO/ai-research-wiki
 ---
 
 # AI Daily Research
@@ -42,10 +42,10 @@ Phase 2: 选+读原文+分析 (LLM)
 没有原文，后续分析无法进行，也无法复用。
 
 论文原文获取优先级：
-1. PDF附件 → PyMuPDF 提取全文
-2. arXiv URL → 下载 PDF 提取全文（优先 HTML 版本）
-3. OpenReview/其他学术URL → 尝试抓取摘要 + 全文
-4. 公众号/网页URL → 爬取正文内容
+1. PDF附件 → PyMuPDF 提取全文（脚本，不消耗 token）
+2. arXiv URL → 下载 PDF → PyMuPDF 提取全文
+3. OpenReview/其他学术URL → 抓取页面 → 提取摘要 + 全文
+4. 公众号/网页URL → **Python 直接提取文字**（curl + BeautifulSoup，不下载 PDF）
 5. 口头提及 → 搜索论文 → 按上述方式获取
 
 **如果获取失败：** 告知用户获取失败原因，建议用户提供 PDF。不跳过获取步骤。
@@ -72,21 +72,70 @@ agent 在回答前**必须**先检查：
 ```bash
 # 按关键词搜索已分析论文（标题/标签/摘要）
 python3 -c "
-import json
+import json, sys
 with open('/opt/data/cron/output/analyzed_sources.json') as f:
     data = json.load(f)
+kw = sys.argv[1].lower()
 for p in data.get('papers', []):
-    if '关键词' in p.get('title','').lower() or '关键词' in ' '.join(p.get('tags',[])):
-        print(f\"{p['arxiv_id']}: {p['title']}\")
-"
-# 搜索概念页
+    if kw in p.get('title','').lower() or kw in ' '.join(p.get('tags',[])).lower() or kw in p.get('brief','').lower():
+        print(f\"  {p['arxiv_id']}: {p['title']} [{', '.join(p.get('tags',[]))}]\")
+" "搜索关键词"
+
+# 搜索概念页（文件名 + 内容）
 grep -ril "关键词" ~/wiki/concepts/ 2>/dev/null
+
 # 搜索实体页
 grep -ril "关键词" ~/wiki/entities/ 2>/dev/null
 ```
 
-### 存储路径
-- 原文根目录: `/opt/data/cron/raw/`
+### 原则四：LLM 只读需要的部分（省 token 关键）
+**PDF/URL → 文本提取是脚本操作（不消耗 token）。只有 LLM 读取文本时才消耗 token。**
+
+因此必须按操作类型控制 LLM 读取量：
+
+| 操作 | LLM 需要读什么 | 最大字符数 | 说明 |
+|------|---------------|-----------|------|
+| **Step 1.8 元数据提取** | 前 5000 字符 | 5000 | 只需标题、作者、摘要 |
+| **Option 2 只看摘要** | 摘要 + 结论 | 8000 | 前3000 + 后3000 + 扫描中间 |
+| **Option 1 深度分析** | 全文（智能截断） | 30000 | 跳过附录/参考文献，读核心章节 |
+| **日报 cron** | 只读选中的 2 篇 | 各 30000 | 不读全部候选论文 |
+
+**智能截断策略（深度分析时）：**
+```python
+def smart_truncate(full_text, max_chars=30000):
+    """智能截断：保留核心章节，跳过附录/参考文献"""
+    # 找到各章节位置
+    sections = {}
+    for marker in ['abstract', 'introduction', 'method', 'methodology',
+                   'experiment', 'results', 'conclusion', 'discussion',
+                   'references', 'appendix']:
+        idx = full_text.lower().find(marker)
+        if idx >= 0:
+            sections[marker] = idx
+
+    # 保留: abstract → conclusion（跳过 references/appendix）
+    end_markers = ['references', 'bibliography', 'appendix', 'supplementary']
+    end_idx = len(full_text)
+    for m in end_markers:
+        if m in sections:
+            end_idx = min(end_idx, sections[m])
+
+    truncated = full_text[:end_idx]
+
+    # 如果还超长，优先保留 abstract + method + results + conclusion
+    if len(truncated) > max_chars:
+        # 保留前5000（abstract+intro）+ 中间方法结果 + 后5000（conclusion）
+        head = truncated[:5000]
+        tail = truncated[-5000:] if len(truncated) > 5000 else ""
+        middle_start = 5000
+        middle_end = min(len(truncated), max_chars - 10000)
+        middle = truncated[middle_start:middle_end]
+        return head + "\n[...截断...]\n" + middle + "\n[...截断...]\n" + tail
+
+    return truncated
+```
+
+**⚠️ 关键：不要把整篇论文原文直接塞进 context！** 按上表控制读取量。
 - 论文原文: `/opt/data/cron/raw/papers/{YYYY-MM-DD}/{arxiv_id}.txt`
 - 元数据JSON: `/opt/data/cron/output/ai_raw_{YYYYMMDD}.json`
 
@@ -421,6 +470,51 @@ cp /tmp/paper_extracted.txt ~/wiki/raw/papers/file_{md5[:8]}.txt
 
 **⚠️ 此时不要执行 Step 2-8！** 等用户选择后再继续。
 这样可以避免在用户只想快速了解时浪费大量 token 做 5 维度分析。
+
+**URL 文字提取流程（不下载 PDF，Python 直接提文字）：**
+
+对于非 PDF 的 URL（公众号、网页、博客等），用 Python 脚本直接提取文字，不需要下载 PDF：
+
+```bash
+# 安装依赖（只需一次）
+pip install --break-system-packages beautifulsoup4 lxml 2>/dev/null
+
+# 提取网页文字
+python3 << 'PYEOF'
+import urllib.request
+from bs4 import BeautifulSoup
+import sys
+
+url = sys.argv[1]
+headers = {'User-Agent': 'Mozilla/5.0'}
+req = urllib.request.Request(url, headers=headers)
+html = urllib.request.urlopen(req, timeout=15).read().decode('utf-8', errors='ignore')
+soup = BeautifulSoup(html, 'lxml')
+
+# 移除 script/style/nav/header/footer
+for tag in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
+    tag.decompose()
+
+# 提取正文
+text = soup.get_text(separator='\n', strip=True)
+# 过滤空行
+lines = [l for l in text.split('\n') if l.strip()]
+text = '\n'.join(lines)
+
+with open('/tmp/url_extracted.txt', 'w') as f:
+    f.write(text)
+print(f"Chars: {len(text)}")
+PYEOF
+```
+
+**不同 URL 类型的处理：**
+
+| URL 类型 | 识别特征 | 提取方式 |
+|----------|---------|---------|
+| arXiv | `arxiv.org/abs/` 或 `arxiv.org/pdf/` | 下载 PDF → PyMuPDF 提取 |
+| OpenReview | `openreview.net/forum` | 抓取页面 → 提取正文 |
+| 公众号 | `mp.weixin.qq.com` | Python 提取正文（注意反爬） |
+| 博客/网页 | 其他 URL | Python 提取正文 |
 
 **Step 2: 提取元数据**（仅在用户选择后执行）
 从PDF前2页和摘要中提取：
@@ -848,7 +942,7 @@ scaling        → concepts/scaling.md
 
 - 脚本: `/opt/data/scripts/fetch_ai_news.py`
 - 项目仓库: `/opt/projects/ai-daily-research/`
-- GitHub: https://github.com/CODE-BULIAO/ai-daily-research
+- GitHub: https://github.com/CODE-BULIAO/ai-research-wiki
 - Wiki 知识库: `~/wiki/`（SCHEMA.md + index.md + log.md + raw/ + entities/ + concepts/）
 - 论文原文: `/opt/data/cron/raw/papers/{YYYY-MM-DD}/{id}.json`
 

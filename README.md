@@ -1,62 +1,62 @@
-# 🐂 牛马加速器
+# 🧠 AI Research Wiki · 牛马加速器
 
-> **科研牛马的 AI 科研助手** — 导师发的公众号文章、论文链接，转发给 Agent 就能自动记录、深度分析、生成日报。第二天把总结好的文章转发给老板，让老板觉得你很爱科研！还能当个人 Wiki 积累知识。
+> **AI Research Wiki** — Your personal AI research assistant. Collect papers, analyze with 5-dimension deep dive, build a searchable knowledge base. Designed for researchers who want to stay on top of AI/LLM papers without drowning in reading.
+> 
+> **牛马加速器** — 导师发的公众号文章、论文链接，转发给 Agent 就能自动记录、深度分析、生成日报。还能当个人 Wiki 积累知识，下次直接查！
 
 [![Hermes Agent Skill](https://img.shields.io/badge/Hermes-Agent-Skill-blue)](#hermes-agent-integration)
 [![Python 3](https://img.shields.io/badge/Python-3.8+-green)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![arXiv](https://img.shields.io/badge/arXiv-daily-blue)](https://arxiv.org)
+[![Wiki](https://img.shields.io/badge/Knowledge-Wiki-green)](https://github.com/CODE-BULIAO/ai-research-wiki)
 
 ---
 
-## 🎯 这是什么？
+## 🎯 What is this?
 
-**牛马加速器**是一个给科研牛马用的 AI 助手，帮你：
+**AI Research Wiki** is an AI research assistant that helps you:
 
-| 痛点 | 解决方案 |
-|------|----------|
-| 导师转发一堆公众号文章，没时间看 | 转发给 Agent，自动记录+总结 |
+| Pain Point | Solution |
+|------------|----------|
+| 导师转发一堆公众号文章，没时间看 | 转发给 Agent，自动提取文字 + 总结 |
 | 老板问最近在看什么，答不上来 | 每天读日报，张口就来 |
-| 论文看完了就忘，没有积累 | 自动存档当个人 Wiki |
+| 论文看完了就忘，没有积累 | 自动存档当个人 Wiki，支持搜索 |
 | 想让老板觉得你很爱科研 | 每天转发总结好的文章给老板 😎 |
 
-## ✨ 核心功能
+## ✨ Core Features
 
-| 功能 | 说明 |
-|------|------|
-| 🗞️ **14+ 数据源** | 中文RSS + Google News + HN + arXiv + OpenAlex + DBLP + CrossRef + OpenReview + 11个顶级博客 |
-| 📄 **论文存储原文** | 论文 PDF 全文提取后存入 `raw/papers/`，LLM 按需读取，不塞满 context window |
-| 🔬 **创新点深度解析** | 5维度分析：问题背景→现有不足→核心方法→关键创新→实验结果 |
-| 👤 **作者单位提取** | 从 PDF 和元数据中提取 100+ 机构关键词匹配 |
-| 📍 **发表位置标注** | 显示会议/期刊名称（NeurIPS、ICML、ACL 等） |
-| 🏢 **大厂论文优先** | 30+ 重点公司（OpenAI、Google、字节、华为等）论文优先展示 |
-| 📚 **外部文章收录** | 发链接自动提取论文标题，加入待分析列表 |
-| 🔄 **渐进式披露** | 完整分析存档，平时只显示标题，用户问才展开 |
+| Feature | Description |
+|---------|-------------|
+| 🗞️ **14+ Data Sources** | Chinese RSS + Google News + HN + arXiv + OpenAlex + DBLP + CrossRef + OpenReview + 11 top tech blogs |
+| 📄 **Smart Text Extraction** | PDF → PyMuPDF (script, no tokens) · URL → BeautifulSoup (script, no tokens) · LLM only reads what's needed |
+| 🔬 **5-Dimension Deep Analysis** | Problem → Innovation → Method → Results → Impact |
+| 👤 **Author Affiliation Extraction** | 100+ institution keywords from PDF and metadata |
+| 📍 **Venue Annotation** | Shows conference/journal names (NeurIPS, ICML, ACL, etc.) |
+| 🏢 **Big Lab Priority** | 30+ focus companies (OpenAI, Google, ByteDance, Huawei, etc.) |
+| 📚 **Paper Ingestion** | Send PDF/URL → extract text → save to Wiki → analyze on demand |
+| 🔄 **Token-Efficient** | Truncation by operation type: 5K for metadata, 8K for summary, 30K for full analysis |
+| 🧠 **Knowledge Base (Wiki)** | Karpathy LLM Wiki style · Auto-indexed · Searchable · Persistent |
 
-## 🏗️ 架构（v2 — 存储原文）
+## 🏗️ Architecture (v3 — Token-Efficient)
 
 ```
-Phase 1: 采集+存原文 (Python脚本)
-├── 新闻: RSS/API → JSON (标题+摘要, 不存原文) ×50条
-└── 论文: PDF提取/摘要 → 存 raw/papers/{date}/{id}.json ×~14篇
-                                          ↓
-Phase 2: 选+读原文+分析 (LLM)
-├── 读轻量元数据JSON → 按重要性选6条新闻 + 2篇论文
-├── 读选中论文的 raw/papers/{date}/{id}.json 原文
-├── 基于原文生成深度分析
-└── 写飞书 + Wiki
+Input: PDF / URL / 口头提及
+    ↓
+Phase 1: 文本提取 (Python脚本, 不消耗token)
+├── PDF → PyMuPDF 提取全文 → 存 ~/wiki/raw/papers/
+├── URL → BeautifulSoup 提取文字 → 存 ~/wiki/raw/papers/ 或 articles/
+└── 提取元数据(标题/作者/来源) → 问用户要做什么
+    ↓
+Phase 2: 用户选择后执行
+├── 📊 深度分析 → 5维度 → analyzed_sources.json + Wiki
+├── 📝 快速摘要 → 只读 abstract+conclusion (8K chars)
+├── 📰 加入日报候选 → pending_papers.md
+└── ❌ 不需要 → 不做任何操作
 ```
 
-**核心设计**：脚本存原文到磁盘，LLM 按需读取选中的论文。新闻只看摘要，论文读全文。
+**Key Design**: Script does heavy lifting (PDF/URL extraction), LLM only reads what's needed. Smart truncation: metadata=5K, summary=8K, full analysis=30K chars max.
 
-### 存储路径
-
-| 内容 | 路径 |
-|------|------|
-| 论文原文 | `/opt/data/cron/raw/papers/{YYYY-MM-DD}/{arxiv_id}.json` |
-| 元数据JSON | `/opt/data/cron/output/ai_raw_{YYYYMMDD}.json` |
-| 分析记录 | `/opt/data/cron/output/analyzed_papers.json` |
-
-## 📰 输出示例
+## 📰 Output Example
 
 ```
 🤖 AI 日报 | 2026年4月30日
@@ -64,7 +64,6 @@ Phase 2: 选+读原文+分析 (LLM)
 ### 🔥 AI 要闻（6条）
 1. **谷歌第八代TPU发布，训练推理正式分家**
    - TPU 8t（训练）+ TPU 8i（推理），首次明确"分家"
-   - 谷歌VP：AI智能体时代需要针对性优化的芯片
 
 ### 📄 论文精选（2篇，深度解析）
 📌 **Turning the TIDE: Cross-Architecture Distillation for Diffusion LLMs**
@@ -79,204 +78,175 @@ Phase 2: 选+读原文+分析 (LLM)
 一句话总结...
 ```
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1. 安装依赖
-
-```bash
-pip install --break-system-packages pymupdf lark-oapi websockets
-```
-
-### 2. 下载脚本
+### 1. Install Dependencies
 
 ```bash
-git clone https://github.com/CODE-BULIAO/ai-daily-research.git
-cd ai-daily-research
+pip install --break-system-packages pymupdf beautifulsoup4 lxml lark-oapi websockets
 ```
 
-### 3. 手动运行
+### 2. Clone
+
+```bash
+git clone https://github.com/CODE-BULIAO/ai-research-wiki.git
+cd ai-research-wiki
+```
+
+### 3. Run Manually
 
 ```bash
 python3 fetch_ai_news.py
 ```
 
-### 4. 定时任务（Hermes Agent）
+### 4. Set Up Cron Job (Hermes Agent)
 
 ```python
-# 在 Hermes Agent 中创建定时任务
 cronjob(
     action="create",
-    name="AI Daily Research",
-    schedule="0 9 * * 1-5",  # 工作日 9:00
-    deliver="feishu:oc_xxx"  # 推送到飞书群
+    name="AI Research Wiki - Daily Digest",
+    schedule="0 9 * * 1-5",  # Weekdays 9:00 AM
+    deliver="feishu:oc_xxx"   # Push to Feishu group
 )
 ```
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
-ai-daily-research/
-├── README.md                # 项目介绍
-├── SKILL.md                 # Hermes Agent Skill 定义（完整流程）
-├── LICENSE                  # MIT 协议
-└── fetch_ai_news.py         # 核心采集脚本（14+ 数据源）
+ai-research-wiki/
+├── README.md                # Project overview
+├── SKILL.md                 # Hermes Agent Skill definition
+├── LICENSE                  # MIT
+├── fetch_ai_news.py         # Core collection script (14+ sources)
+└── wiki/                    # Wiki templates
+    ├── SCHEMA.md            # Schema definition
+    ├── index.md             # Knowledge index
+    └── log.md               # Operation log
 
-运行时数据：
-/opt/data/cron/
-├── raw/papers/{date}/       # 论文原文存档
-├── output/
-│   ├── ai_raw_YYYYMMDD.json # 每日采集元数据
-│   └── analyzed_papers.json # 已分析论文记录
+Runtime data:
+~/wiki/                      # Working knowledge base
+├── raw/papers/              # Paper full text
+├── raw/articles/            # Article text
+├── concepts/                # Concept pages (auto-accumulated)
+├── entities/                # Entity pages (with timeline)
+└── daily-digests/           # Daily digest archives
 ```
 
-## 📊 数据源详情（14+）
+## 📊 Data Sources (14+)
 
-### 中文新闻 RSS
-| 来源 | 特点 | 状态 |
-|------|------|------|
-| 雷峰网 | AI/机器人专业报道 | ✅ |
-| 量子位 | AI 垂直深度 | ✅ |
-| 极客公园 | 科技+AI | ✅ |
-| 钛媒体 | 科技商业 | ✅ |
-| IT之家 | 综合科技 | ✅ |
-| 36氪 | 头部科技媒体 | ⚠️ 限速 |
+### Chinese News RSS
+| Source | Status |
+|--------|--------|
+| 雷峰网 | ✅ |
+| 量子位 | ✅ |
+| 极客公园 | ✅ |
+| 钛媒体 | ✅ |
+| IT之家 | ✅ |
+| 36氪 | ⚠️ Rate limited |
 
-### 国际新闻
-| 来源 | 特点 |
-|------|------|
-| Google News | 全球媒体聚合 |
-| Hacker News | 技术社区热议 |
+### International
+| Source | Focus |
+|--------|-------|
+| Google News | Global aggregation |
+| Hacker News | Tech community |
 
-### 顶级技术博客（Karpathy 推荐）
-| 来源 | 特点 |
-|------|------|
-| Simon Willison | LLM 应用专家 |
-| Antirez (Redis 作者) | 系统/编程 |
-| GWERN | AI 深度分析 |
-| Paul Graham | 创业/技术思考 |
-| Dan Luu | 系统/性能 |
-| Julia Evans | 编程探索 |
-| Mitchell Hashimoto | 基础设施 |
-| Overreacted (Dan Abramov) | React/前端 |
-| matklad | Rust/工具链 |
-| Minimaxir | AI 实验 |
-| GeoHot | AI/创业 |
+### Top Tech Blogs (Karpathy Recommended)
+Simon Willison · Antirez · GWERN · Paul Graham · Dan Luu · Julia Evans · Mitchell Hashimoto · Overreacted · matklad · Minimaxir · GeoHot
 
-### 学术来源（6个）
-| 来源 | 覆盖范围 | 优势 |
-|------|---------|------|
-| arXiv | 预印本（大部分 AI 论文） | 有 PDF 全文，存入 raw/ |
-| OpenAlex | 期刊+会议（引用数据） | 有作者单位 |
-| DBLP | 会议论文集 | 会议信息全 |
-| CrossRef | 出版商论文（DOI解析） | 覆盖最广 |
-| OpenReview | NeurIPS/ICLR/ICML | 顶会原文 |
-| Google Scholar | 综合学术搜索 | 补充渠道 |
+### Academic Sources (6)
+| Source | Coverage |
+|--------|----------|
+| arXiv | Preprints (most AI papers) |
+| OpenAlex | Journals + Conferences |
+| DBLP | Conference proceedings |
+| CrossRef | Publisher papers (DOI) |
+| OpenReview | NeurIPS/ICLR/ICML |
+| Google Scholar | Comprehensive |
 
-### 🏢 重点跟踪公司（30+）
+## 📚 Paper Ingestion
 
-**国际大厂**：OpenAI, Google DeepMind, Anthropic, Meta AI, Microsoft, Apple, Amazon, NVIDIA, xAI, Cohere, Mistral AI 等
+Send a paper via PDF or URL:
 
-**国内大厂**：百度, 阿里, 腾讯, 字节/豆包, 华为, 美团, 小米, 商汤, 月之暗面/Kimi, 智谱AI/GLM, DeepSeek, MiniMax, 蚂蚁集团, 京东, 网易, 快手, 科大讯飞, 昆仑万维 等
+| Trigger | Action |
+|---------|--------|
+| Send PDF attachment | Extract text → Save → Ask user |
+| Send URL (arxiv/openreview) | Download PDF → Extract → Save → Ask user |
+| Send URL (blog/article) | Extract text via BeautifulSoup → Save → Ask user |
+| Mention paper title | Search → Download → Save → Ask user |
+| "收录..." / "加入日报..." | Save to pending only |
 
-> 💡 论文筛选优先选择来自以上公司的研究，确保日报覆盖行业前沿动态。
+**User chooses what to do:**
+1. 📊 Deep analysis (5-dimension, write to Wiki)
+2. 📝 Quick summary (abstract + conclusion only)
+3. 📰 Add to daily digest candidates
+4. ❌ No thanks
 
-## 📚 外部文章收录
+## 📝 Changelog
 
-### 触发方式
-
-| 触发方式 | 示例 | 行为 |
-|----------|------|------|
-| 发链接 | `https://mp.weixin.qq.com/s/xxx` | 自动识别并收录论文标题 |
-| 链接 + 记住 | `记住 https://mp.weixin.qq.com/s/xxx` | 同上 |
-| 链接 + 收录 | `收录 https://mp.weixin.qq.com/s/xxx` | 同上 |
-| 链接 + 加入日报 | `加入日报 https://mp.weixin.qq.com/s/xxx` | 同上 |
-| 查看待分析 | `查看待分析` | 显示待分析论文列表 |
-| 清除待分析 | `清除待分析` | 清空待分析列表 |
-
-### 渐进式披露
-
-- **平时查询**：只显示标题 + 一句话摘要（防止重复）
-- **用户追问**：展开完整 5 维度分析（问题背景/核心方法/关键创新/实验结果/重要性）
-- **按标签筛选**：根据关键词（reasoning/multimodal 等）筛选相关论文
-
-## 🔄 工作流程
-
-```
-用户给链接 → 自动提取论文标题 → 存入 pending_papers.md
-    ↓
-脚本采集新闻+论文 → 存原文到 raw/papers/ → 输出轻量元数据JSON
-    ↓
-LLM 选6条新闻 + 2篇论文 → 读原文 → 完整分析（5维度）
-    ↓
-从 pending 删除 → 存入 analyzed_sources.json
-    ↓
-飞书推送日报 → Wiki 写入实体/概念/索引/存档
-```
-
-## 🤖 Hermes Agent 集成
-
-本项目是一个 [Hermes Agent](https://github.com/NousResearch/hermes-agent) Skill。
-
-### 什么是 Hermes Agent？
-
-Hermes Agent 是一个开源的 AI 代理框架，支持：
-- 多平台消息推送（飞书、微信、Telegram、Discord）
-- 定时任务调度
-- 技能（Skill）系统
-- 工具调用和代码执行
-
-### 如何使用
-
-1. 安装 Hermes Agent
-2. 将 `SKILL.md` 放入 skills 目录
-3. 配置飞书/微信推送
-4. 创建定时任务，自动推送日报
-
-## 📝 更新日志
+### v3.0.0 (2026-05-13)
+- 🧠 **Knowledge-first design**: Any analyzed paper is saved to Wiki permanently
+- ⏸️ **Stop-and-ask**: Paper detection → save text → ask user what to do (saves tokens)
+- 🔍 **Smart retrieval**: Check Wiki before answering follow-up questions
+- ✂️ **Text truncation**: 5K for metadata, 8K for summary, 30K for full analysis
+- 🌐 **URL text extraction**: BeautifulSoup for web pages (no PDF download needed)
+- 📋 **Unified trigger matrix**: PDF/URL/oral → all follow same get→save→ask flow
 
 ### v2.0.0 (2026-05-06)
-- 🏗️ **架构重构**：论文 PDF 全文存入 `raw/papers/` 目录，LLM 按需读取
-- ⚡ **精简采集**：新闻 100→50 条，论文 20→~14 篇，PDF 下载速度提升
-- 🗑️ 移除 JSON 内联 `full_text` 字段，改用 `raw_text_path` 指向文件
-- 📊 元数据 JSON 新增 `raw_files` 映射表
+- 🏗️ Architecture restructure: PDF full text stored in `raw/papers/`
+- ⚡ Reduced collection: News 100→50, Papers 20→~14
+- 🗑️ Removed inline `full_text` field, use `raw_text_path`
 
 ### v1.2.0 (2026-04-30)
-- ✨ 新增 CrossRef + OpenReview 学术来源
-- ✨ 新增外部文章收录 + 渐进式披露工作流
-- ✨ 新增触发关键词（发链接自动收录）
-- 🔄 飞书推送（替代微信）
-- 🔄 数据源从 11 个扩展到 14+
+- ✨ CrossRef + OpenReview sources
+- ✨ External article ingestion + progressive disclosure
+- 🔄 Feishu push (replaced WeChat)
 
 ### v1.1.0 (2026-04-30)
-- ✨ 新增 11 个 Karpathy 推荐顶级技术博客
-- ✨ 大厂论文优先排序
-- 📄 PDF 机构提取增强（CamelCase分词、噪音过滤）
+- ✨ 11 Karpathy-recommended tech blogs
+- ✨ Big lab priority sorting
+- 📄 PDF affiliation extraction enhancement
 
 ### v1.0.0 (2026-04-30)
-- ✨ 初始版本
-- 🗞️ 支持 11 个数据源
-- 📄 支持 arXiv PDF 全文提取
-- 🔬 支持创新点深度解析
+- ✨ Initial version with 11 data sources
+- 📄 arXiv PDF full text extraction
+- 🔬 5-dimension deep analysis
 
-## 🤝 贡献
+## 🤖 Hermes Agent Integration
 
-欢迎提交 Issue 和 PR！
+This project is a [Hermes Agent](https://github.com/NousResearch/hermes-agent) Skill.
+
+### What is Hermes Agent?
+An open-source AI agent framework supporting:
+- Multi-platform messaging (Feishu, WeChat, Telegram, Discord)
+- Cron job scheduling
+- Skill system
+- Tool calling and code execution
+
+### How to Use
+1. Install Hermes Agent
+2. Put `SKILL.md` in the skills directory
+3. Configure Feishu/WeChat push
+4. Create a cron job for daily digest
+
+## 🙏 Acknowledgments
+
+Powered by **Xiaomi MiMo 100T** for AI capabilities.
+
+> Xiaomi MiMo 100T provides high-quality Chinese language understanding and generation for news summarization, paper analysis, and innovation extraction.
+
+**Token Source**: [Xiaomi MiMo Platform](https://platform.xiaomimimo.com?ref=P67V88)
+
+Thanks to Xiaomi MiMo team for supporting the open source community! 🎉
+
+---
+
+## 🤝 Contributing
+
+Issues and PRs welcome!
 
 ## 📄 License
 
 [MIT](LICENSE)
-
----
-
-## 🙏 Acknowledgments
-
-本项目的运行由 **小米 MiMo 100T** 提供算力支持。
-
-> MiMo 100T 是小米推出的大语言模型，具备强大的中文理解与生成能力，为本项目的新闻摘要、论文分析、创新点解析等核心功能提供了高质量的 AI 能力支撑。
-
-**Token 来源**：[小米 MiMo 平台](https://platform.xiaomimimo.com?ref=P67V88)
-
-感谢小米 MiMo 团队对开源社区的支持！🎉
 
 ---
 
