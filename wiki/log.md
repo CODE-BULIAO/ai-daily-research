@@ -1,13 +1,20 @@
-# Wiki Log — 牛马加速器
+# 📋 Wiki 操作日志
 
-> 所有 wiki 操作的时间线记录，追加写入。
-> 格式: `## [YYYY-MM-DD] action | subject`
-> 操作: ingest, update, query, lint, create, archive, delete
-> 超过 500 条时旋转: 重命名为 log-YYYY.md
+> 追加式日志，记录所有 wiki 变更。按时间倒序排列。
 
-## [2026-04-30] create | Wiki 初始化
-- 创建目录结构: raw/, entities/, concepts/, comparisons/, queries/, daily-digests/, _archive/
-- 创建 SCHEMA.md: AI/LLM 科研领域配置
-- 创建 index.md: 空索引
-- 创建 log.md: 本文件
-- 基于 Karpathy LLM Wiki 模式改造
+---
+
+## [2026-05-13] init | Wiki 基础设施初始化
+
+- 创建 SCHEMA.md（领域定义 + 标签约定）
+- 创建 index.md（知识索引）
+- 创建 log.md（本文件）
+- 升级 ai-daily-research skill v2.1.0 → v3.0.0
+  - 新增「核心原则」：论文获取优先 / 分析即存储 / 查询优先检索
+  - 重新设计触发词表：任何论文交互 = 获取原文 + 分析 + 存储
+  - 修改 Wiki 写入规则：分析了就必须写 Wiki
+  - 新增「知识检索」行为：agent 回答前必须先查 Wiki
+
+## [2026-05-06] digest | AI 日报存档
+
+- 保存 daily-digests/2026-05-06.md

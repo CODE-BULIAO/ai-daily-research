@@ -1,142 +1,132 @@
-# Wiki Schema — 牛马加速器
+# SCHEMA.md — 领域定义 + 标签约定
 
-## Domain
-AI/LLM 科研知识库 — 为科研牛马自动积累论文、追踪技术演进、构建个人 Wiki。
+> 本文件定义 Wiki 的分类体系和命名规范。Agent 在创建/更新页面时必须遵循。
 
-## 核心理念
-> 基于 Karpathy LLM Wiki 模式改造：自动采集 + 人类转发双轨输入，
-> Agent 自动分析并写入 Wiki，日报推给老板，Wiki 给自己积累知识。
+## 分类体系
 
-## 文件命名规范
-- 文件名：小写、连字符、无空格（如 `chain-of-thought.md`、`openai.md`）
-- 每个 wiki 页必须有 YAML frontmatter（见下方模板）
-- 使用 `[[wikilinks]]` 互链（每页至少 2 个出站链接）
-- 更新页面时必须更新 `updated` 日期
-- 每个新页面必须添加到 `index.md` 对应分类
-- 每次操作必须追加到 `log.md`
+### 论文 (Papers)
+- 存放位置: `concepts/` (按技术概念) + `entities/` (按作者/机构)
+- 文件格式: Markdown, YAML frontmatter
+- 命名: `kebab-case` (如 `mixture-of-experts.md`)
 
-## Frontmatter 模板
-```yaml
----
-title: 页面标题
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
-type: entity | concept | comparison | query | digest
-tags: [从标签分类中选]
-sources: [raw/papers/xxx.pdf 或 raw/articles/xxx.md]
----
-```
+### 实体 (Entities)
+- 公司/机构: `entities/{name}.md`
+- 人物: `entities/{name}.md` (姓名全小写, 多词用连字符)
+- 模型: `entities/{name}.md`
 
-## Tag Taxonomy（标签分类）
+### 概念 (Concepts)
+- 技术方法: `concepts/{name}.md`
+- 一篇论文可以关联多个概念
+- 概念页按时间线累积论文引用
 
-### 模型相关
-- model, architecture, benchmark, training, inference, scaling
+## 标签约定
 
-### 技术相关
-- reasoning, alignment, fine-tuning, rag, agents, multimodal, code, safety, data, evaluation
+### 大类标签
+| 标签 | 说明 |
+|------|------|
+| `llm` | 大语言模型相关 |
+| `training` | 训练方法（RLHF/DPO/GRPO等） |
+| `reasoning` | 推理能力 |
+| `multimodal` | 多模态（视觉+语言等） |
+| `agents` | AI Agent / 工具使用 |
+| `safety` | 安全、对齐 |
+| `evaluation` | 评估、基准测试 |
+| `education` | 教育应用 |
+| `code` | 代码生成 |
+| `rag` | 检索增强生成 |
+| `vision` | 计算机视觉 |
+| `robotics` | 机器人 |
+| `nlp` | 自然语言处理 |
+| `svg` | SVG / 可视化 |
+| `scaling` | 缩放定律 |
+| `fine-tuning` | 微调 |
 
-### 人/组织相关
-- person, company, lab, open-source
+### 子标签
+可在大类标签后加子标签细化，如: `llm-gpt4`, `training-grpo`, `reasoning-cot`
 
-### 元相关
-- comparison, survey, reproduction, benchmark
+## 命名规范
 
-**规则：** 标签必须来自以上分类。如需新标签，先添加到此分类，再使用。
-
-## 实体页（entities/）
-一个页面对应一个实体（公司、模型、人物）。
-
-```markdown
----
-title: OpenAI
-created: 2026-04-30
-updated: 2026-04-30
-type: entity
-tags: [company]
-sources: []
----
-
-# OpenAI
-
-## 概述
-美国AI公司，2015年成立，总部旧金山。
-
-## 最新动态（自动更新）
-| 日期 | 事件 | 来源 |
+| 类型 | 格式 | 示例 |
 |------|------|------|
-| 2026-04-30 | GPT-5 Turbo 发布 | 日报 #128 |
+| 概念页 | `concepts/{kebab-case}.md` | `concepts/in-context-learning.md` |
+| 实体页 | `entities/{kebab-case}.md` | `entities/deepseek.md` |
+| 原始论文 | `raw/papers/{arxiv_id}.pdf` | `raw/papers/2503.07429.pdf` |
+| 原始文章 | `raw/papers/{id}.txt` | `raw/papers/file_a1b2c3d4.txt` |
+| 日报存档 | `daily-digests/YYYY-MM-DD.md` | `daily-digests/2026-05-13.md` |
 
-## 相关论文
-- [[gpt-5-turbo-eval]]
+## 页面模板
 
-## 关联实体
-- [[Anthropic]]
-```
-
-## 概念页（concepts/）— 累积模式
-一个页面对应一个技术概念。新论文自动追加。
-
+### 概念页 (Concept Page)
 ```markdown
 ---
-title: chain-of-thought（思维链推理）
-created: 2026-04-30
-updated: 2026-04-30
+title: {概念名称}
+created: {日期}
+updated: {日期}
 type: concept
-tags: [reasoning]
-sources: []
+tags: [{标签列表}]
 ---
 
-# chain-of-thought
+# {概念名称}
 
 ## 概述
-让LLM逐步推理的技术。
+{一句话描述}
 
-## 论文时间线（自动追加）
-- 2026-04-30: [[step-back-prompting]] - 退一步推理（Google DeepMind）
+## 论文时间线
+- {日期}: [[{paper_page_name}]] - {一句话摘要}（{机构}）
 
-## 累积洞察（Agent 定期更新）
-- 核心瓶颈是推理深度 vs 效率的权衡
+## 累积洞察
+- {从已有论文中总结的趋势/发现}
 
 ## 关联概念
-- [[reasoning]]
-- [[selective-thinking]]
+- [[{related_concept}]]
 ```
 
-## 对比页（comparisons/）
-并列分析两个或多个对象。
-
-## 页面创建规则
-- **创建页面：** 实体/概念在 2+ 篇来源中出现，或是一篇来源的核心主题
-- **更新已有页：** 新来源提到已覆盖的实体/概念
-- **不创建页面：** 一笔带过、次要细节、超出领域
-- **分割页面：** 超过 200 行时拆分为子主题 + 交叉引用
-- **归档页面：** 内容被完全取代时移至 `_archive/`
-
-## 更新策略
-当新信息与已有内容矛盾时：
-1. 检查日期——新来源通常覆盖旧来源
-2. 如确实矛盾，保留两个说法并标注日期和来源
-3. 在 frontmatter 标记 `contradictions: [page-name]`
-
-## 日报存档（daily-digests/）
-每次日报推送后存档一份到 wiki。
-
+### 实体页 (Entity Page)
 ```markdown
-# AI 日报 — 2026-04-30
+---
+title: {实体名称}
+created: {日期}
+updated: {日期}
+type: entity
+tags: [{标签列表}]
+---
 
-## 要闻
-1. ...
+# {实体名称}
 
-## 论文
-1. ...
+## 概述
+{一句话描述}
 
-## Wiki 更新
-- 创建 entities/openai.md
-- 更新 concepts/reasoning.md（新增 1 篇论文引用）
+## 最新动态
+| 日期 | 事件 | 来源 |
+|------|------|------|
+| {日期} | {事件描述} | 论文 {arxiv_id} |
+
+## 相关论文
+- [[{paper_page_name}]] — {一句话摘要}
+
+## 关联实体
+- [[{related_entity}]]
 ```
 
-## 交叉引用规则
-- 每个 wiki 页至少链接 2 个其他页面
-- 实体页链接到相关概念页
-- 概念页链接到相关实体页和对比页
-- 被引用的页面尽量反向链接（形成双向引用）
+### 论文分析 (Paper Analysis)
+存储在 `analyzed_sources.json`，格式:
+```json
+{
+  "arxiv_id": "2503.07429",
+  "title": "论文标题",
+  "date": "2025-03-10",
+  "url": "https://arxiv.org/abs/2503.07429",
+  "authors": "Author1, Author2",
+  "affiliations": ["机构1"],
+  "venue": "期刊/会议名",
+  "analysis": {
+    "problem_background": "...",
+    "method_overview": "...",
+    "key_innovation": "...",
+    "experiment_results": "...",
+    "significance": "..."
+  },
+  "tags": ["svg", "llm", "education"],
+  "brief": "一句话中文摘要"
+}
+```
