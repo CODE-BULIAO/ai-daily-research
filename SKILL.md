@@ -50,16 +50,13 @@ Phase 2: 选+读原文+分析 (LLM)
 
 **如果获取失败：** 告知用户获取失败原因，建议用户提供 PDF。不跳过获取步骤。
 
-### 原则二：分析一次，永久存储
-只要 agent 用本 skill 对论文进行了实质性分析（5维度深度分析），
-**必须**同时写入：
-1. `analyzed_sources.json`（结构化数据，用于去重和检索）
-2. Wiki 知识库（人可读 + agent 可检索，用于长期记忆）
+### 原则二：获取即保存，分析需确认
+- **获取原文后立即保存**到磁盘（`~/wiki/raw/papers/`），确保不丢失
+- **5维度深度分析需要用户确认**后才执行（省 token）
+- 分析完成后**必须**同时写入 `analyzed_sources.json` + Wiki
 
-**这是硬性要求，不依赖任何特定触发词。**
-
-原因：Wiki 是 agent 的长期记忆。已分析的论文不应在下次查询时重新分析全文，
-而是直接从 Wiki 读取已有分析。分析一次 → 永久可用。
+**流程：** 获取原文 → 保存 → 问用户 → 用户选"深度分析" → 分析 + 存储
+**不要：** 获取原文 → 自动开始分析（浪费 token）
 
 ### 原则三：查询优先检索 Wiki
 当用户提问涉及某个主题/论文/概念时，
@@ -278,15 +275,24 @@ python3 /opt/data/scripts/fetch_ai_news.py 2>/tmp/fetch_stderr.txt > /tmp/ai_new
 
 ### 触发与行为矩阵
 
-| 用户行为 | 第一步：获取原文 | 第二步：分析 | 第三步：存储 |
+| 用户行为 | 第一步：获取原文 | 第二步：处理 | 第三步：存储 |
 |----------|----------------|-------------|-------------|
-| **发PDF附件** | PyMuPDF提取全文 → 存 `~/wiki/raw/papers/` | 5维度深度分析 | analyzed_sources.json + Wiki |
-| **发链接（arxiv/openreview等学术URL）** | 下载PDF/抓取HTML → 提取全文 → 存 `~/wiki/raw/papers/` | 5维度深度分析 | analyzed_sources.json + Wiki |
-| **发链接（公众号/网页等非学术URL）** | 爬取网页正文 → 存 `~/wiki/raw/articles/` | 基于内容分析 | analyzed_sources.json + Wiki |
-| **口头讨论论文**（提到标题/arXiv ID/DOI） | 搜索论文 → 下载全文 → 存 `~/wiki/raw/papers/` | 5维度深度分析 | analyzed_sources.json + Wiki |
-| **发链接 + "收录"**（明确说收录，不要求分析） | 提取标题+摘要 → 存 pending_papers.md | ❌ 不分析 | 只存 pending，等日报统一排 |
+| **发PDF附件** | PyMuPDF提取全文 → 存 `~/wiki/raw/papers/` | **提取元数据 + 问用户要做什么** | 用户选择后执行 |
+| **发链接（arxiv/openreview等学术URL）** | 下载PDF/抓取HTML → 提取全文 → 存 `~/wiki/raw/papers/` | **提取元数据 + 问用户要做什么** | 用户选择后执行 |
+| **发链接（公众号/网页等非学术URL）** | 爬取网页正文 → 存 `~/wiki/raw/articles/` | **提取元数据 + 问用户要做什么** | 用户选择后执行 |
+| **口头讨论论文**（提到标题/arXiv ID/DOI） | 搜索论文 → 下载全文 → 存 `~/wiki/raw/papers/` | **提取元数据 + 问用户要做什么** | 用户选择后执行 |
+| **发链接 + "收录"**（明确说收录） | 提取标题+摘要 → 存 pending_papers.md | ❌ 不分析 | 只存 pending |
 | **发链接 + "加入日报"** | 同上 | ❌ 不分析 | 只存 pending |
 | **日报 cron 选中精读** | 脚本已采集 | 选2篇精读 | analyzed_sources.json + Wiki |
+
+### 用户选择后的执行路径
+
+| 用户选择 | 执行 |
+|----------|------|
+| 1️⃣ 深度分析 | Step 2-8（5维度分析 + analyzed_sources.json + Wiki） |
+| 2️⃣ 只看摘要 | 读取已保存的原文，输出摘要（不写 Wiki） |
+| 3️⃣ 加入日报候选 | 追加到 pending_papers.md |
+| 4️⃣ 不需要了 | 不做任何操作 |
 
 ### 判断用户意图的规则
 
@@ -380,9 +386,43 @@ is_academic = academic_count >= 3 and non_academic_count == 0
 
 **注意：** 非论文PDF不走本skill的任何后续步骤（不存analyzed_sources.json、不写Wiki、不做5维度分析）。用户如果需要分析非论文内容，agent用自身通用能力处理即可，无需skill介入。
 
-**如果是学术论文：** 继续执行 Step 2。
+**如果是学术论文：** 执行 Step 1.8（保存原文 + 询问用户），**不要自动继续 Step 2-8**。
 
-**Step 2: 提取元数据**
+**Step 1.8: 保存原文 + 询问用户 ⚠️ 省 token 关键步骤**
+
+识别为论文后，**只做两件事就停下来**：
+
+1. **保存原文到磁盘**（确保以后能复用）：
+```bash
+# arXiv 论文
+cp /tmp/paper_extracted.txt ~/wiki/raw/papers/{arxiv_id}.txt
+
+# 非 arXiv 论文（用文件名 hash）
+cp /tmp/paper_extracted.txt ~/wiki/raw/papers/file_{md5[:8]}.txt
+```
+
+2. **提取基本信息**（标题 + 作者 + 来源，不超过 3 行）
+
+3. **停下来问用户要做什么**，输出格式：
+```
+📄 已收录论文：
+
+**标题：** {title}
+**作者：** {authors}
+**来源：** {arxiv_id / DOI / venue}
+**已保存：** ~/wiki/raw/papers/{file}.txt
+
+你想怎么处理？
+1️⃣ 深度分析（5维度，写入 Wiki）
+2️⃣ 只看摘要（快速了解）
+3️⃣ 加入日报候选（pending_papers.md）
+4️⃣ 不需要了
+```
+
+**⚠️ 此时不要执行 Step 2-8！** 等用户选择后再继续。
+这样可以避免在用户只想快速了解时浪费大量 token 做 5 维度分析。
+
+**Step 2: 提取元数据**（仅在用户选择后执行）
 从PDF前2页和摘要中提取：
 - `title`: 论文标题
 - `authors`: 作者列表
@@ -490,9 +530,9 @@ computer-vision, robotics, healthcare, benchmark, dataset, ...
 
 ### 流程
 
-**1. 用户提供论文链接时（统一三步流程）**
+**1. 用户提供论文链接时（获取 + 询问）**
 
-默认行为是「分析」（不是「收录」），除非用户明确说"收录/记住/加入日报"：
+默认行为是「获取原文 + 问用户」（不是自动分析），除非用户明确说"收录/加入日报"：
 
 **a. 获取原文：**
 - 识别 URL 类型（arxiv.org / openreview.net / mp.weixin.qq.com / 其他）
@@ -500,14 +540,24 @@ computer-vision, robotics, healthcare, benchmark, dataset, ...
 - OpenReview → 抓取页面 → 提取摘要 + 全文 → 存 `~/wiki/raw/papers/{paper_id}.txt`
 - 公众号/网页 → 爬取正文 → 存 `~/wiki/raw/articles/{slug}.txt`
 
-**b. 分析：**
-- 基于全文执行 5维度深度分析（同 PDF 附件流程 Step 4-5）
+**b. 提取基本信息 + 问用户（不要自动分析！）：**
+- 提取标题、作者、来源（不超过 3 行）
+- 输出选择菜单，等用户决定：
+```
+📄 已收录论文：
 
-**c. 存储：**
-- 写入 `analyzed_sources.json`
-- 执行 Wiki Writer Step 1-6
+**标题：** {title}
+**作者：** {authors}
+**来源：** {arxiv_id / DOI / venue}
 
-**d. 如果获取失败：**
+你想怎么处理？
+1️⃣ 深度分析（5维度，写入 Wiki）
+2️⃣ 只看摘要（快速了解）
+3️⃣ 加入日报候选（pending_papers.md）
+4️⃣ 不需要了
+```
+
+**c. 如果获取失败：**
 - 告知用户获取失败原因
 - 建议用户提供 PDF 或检查链接是否有效
 - 不跳过获取步骤直接分析
@@ -779,13 +829,15 @@ scaling        → concepts/scaling.md
 
 | 现有流程 | 行为 | Wiki 写入时机 |
 |----------|------|-------------|
-| **用户发PDF附件** | **自动提取全文 + 5维度分析 + 存 analyzed_sources.json** | **✅ 立即执行 Wiki Writer Step 1-6** |
-| **用户发链接（无明确指令）** | **下载全文 + 5维度分析 + 存 analyzed_sources.json** | **✅ 立即执行 Wiki Writer Step 1-6** |
-| **用户口头讨论论文** | **搜索 + 下载全文 + 5维度分析 + 存 analyzed_sources.json** | **✅ 立即执行 Wiki Writer Step 1-6** |
-| 用户发链接 + "收录/记住/加入日报" | 只存 pending_papers.md | ❌ 不写入 |
-| cron 日报推送 | 合并 pending + 采集文章，统一排序，选2篇精读 | 推送完成后执行 Wiki Writer Step 1-6 |
-| pending 文章被选中精读 | 合并到候选池，被选中后分析 | 分析完成后执行 Wiki Writer Step 1-6 |
-| pending 文章未被选中 | 留在 pending_papers.md，等下次日报 | ❌ 不写入 |
+| **用户发PDF附件** | **提取全文 + 保存 + 问用户要做什么** | 用户选"深度分析"后执行 |
+| **用户发链接（无明确指令）** | **下载全文 + 保存 + 问用户要做什么** | 用户选"深度分析"后执行 |
+| **用户口头讨论论文** | **搜索 + 下载全文 + 保存 + 问用户要做什么** | 用户选"深度分析"后执行 |
+| 用户发链接 + "收录/加入日报" | 只存 pending_papers.md | ❌ 不写入 |
+| 用户选"1️⃣ 深度分析" | Step 2-8（5维度分析） | ✅ 写 analyzed_sources.json + Wiki |
+| 用户选"2️⃣ 只看摘要" | 读已保存原文，输出摘要 | ❌ 不写入 |
+| 用户选"3️⃣ 加入日报候选" | 追加到 pending_papers.md | ❌ 不写入 |
+| cron 日报推送 | 合并 pending + 采集文章，统一排序，选2篇精读 | 推送完成后执行 Wiki Writer |
+| pending 文章被选中精读 | 合并到候选池，被选中后分析 | 分析完成后执行 Wiki Writer |
 
 ## 参考项目
 
